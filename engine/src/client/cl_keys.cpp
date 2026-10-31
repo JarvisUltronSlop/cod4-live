@@ -1207,10 +1207,14 @@ int32_t __cdecl Key_GetCommandAssignmentInternal(int32_t localClientNum, const c
     *twokeys = -1;
     count = 0;
 #ifdef COD4_LIVE_CONTROLLER
-    if (live::controller::InUse()) return live::controller::CommandKeys(command, twokeys);
+    if (live::controller::PromptsActive()) return live::controller::CommandKeys(command, twokeys);
 #endif
     for (keynum = 0; keynum < 256; ++keynum)
     {
+#ifdef COD4_LIVE_CONTROLLER
+        // Keyboard/menu lookup must not pick an earlier controller key code.
+        if (live::controller::KeyName(keynum, false)) continue;
+#endif
         binding = Key_GetBinding(localClientNum, keynum);
         if (binding)
         {

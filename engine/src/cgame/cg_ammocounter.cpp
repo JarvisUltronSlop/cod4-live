@@ -14,6 +14,10 @@
 #endif
 
 #include <stringed/stringed_hooks.h>
+#ifdef COD4_LIVE_CONTROLLER
+#include <live/controller.h>
+#include <live/controller_prompt_text.h>
+#endif
 
 const dvar_t *lowAmmoWarningPulseMin;
 const dvar_t *actionSlotsHide;
@@ -1182,6 +1186,20 @@ void __cdecl CG_DrawPlayerWeaponLowAmmoWarning(
                                 colorMod,
                                 material);
                         localizedString = SEH_LocalizeTextMessage(text, "low ammo warning", LOCMSG_SAFE);
+#ifdef COD4_LIVE_CONTROLLER
+                        std::string controllerReload;
+                        if (canReload && live::controller::PromptsActive())
+                        {
+                            char reloadBinding[256];
+                            // CoD4's localized Reload text has no conversion or
+                            // HUD directive; unlike IW4x, no separate button is drawn.
+                            if (UI_GetKeyBindingLocalizedString(localClientNum, "+reload", reloadBinding))
+                            {
+                                controllerReload = live::controller::PrefixPromptBinding(localizedString, reloadBinding);
+                                localizedString = controllerReload.data();
+                            }
+                        }
+#endif
                         v10 = rect->y + text_y;
                         v9 = rect->x + text_x;
                         UI_DrawWrappedText(

@@ -7,9 +7,10 @@ remaining acceptance cases below are not claimed as passed.
 ## Build and automated checks
 
 - Full multiplayer client and dedicated server compile and link successfully.
-- Twelve engine CTest suites pass: controller-math, input_policy, bot_policy,
+- Thirteen engine CTest suites pass: controller-math, input_policy, bot_policy,
   damage_callback, script_variables, script_references, crosshair_scan,
-  native_enum, controller_assets, usercmd_codec, server_input, and steam_auth. The separate
+  native_enum, binding_prompts, controller_assets, usercmd_codec, server_input,
+  and steam_auth. The separate
   installer suite also passes.
 - Controller tests exercise the vendored IW4x calculations, radial deadzones,
   stick layouts, inversion, slowdown, relative-motion rotation, short-tap
@@ -28,6 +29,12 @@ remaining acceptance cases below are not claimed as passed.
   They cover left/right, Enter, focus, release, hidden/disabled controls, and
   one-slot and 64-slot domains. Bot Count and Bot Difficulty now appear directly
   after Maximum Players in the host list and its controller focus order.
+- Binding-prompt tests compile the production lookup, glyph encoding and localized
+  formatting pipeline. They cover all eight IW4x layouts, exact/custom bindings,
+  merged use/reload and sprint/breath actions, both glyph families and overrides,
+  keyboard menu fallback, and controller gameplay hints during chat/console use.
+  Text cases cover reload, end-of-game and quick-message Back, airstrike Confirm,
+  localized Escape names, and preservation of wording, punctuation and colors.
 - Protocol tests compile production serialization code, cover all signed-byte
   axis pairs, both encoding branches, metadata-only changes, chained commands,
   malformed flags, and truncation. Server tests compile production enforcement
@@ -117,18 +124,17 @@ remaining acceptance cases below are not claimed as passed.
   when launched outside its directory, with no script runtime errors.
 - The user confirmed the new inline host controls work with the DualSense.
   Maximum Players, BOTS and BOT DIFFICULTY now share the stock Start New Server
-  list. The user requested a one-bot Shipment match to judge snap more clearly
-  after testing with a larger bot count.
+  list. After a focused one-bot Shipment match, the user confirmed the LT snap
+  behavior works, including the fresh-press and held-ADS checks. The remaining
+  issue reported in that test was keyboard labels in gameplay action prompts.
 - Valve's dedicated runtime helper downloaded app 1007 directly from Valve,
   checked its signatures and x86 DLLs, and passed anonymous server API login
   while loading the downloaded local steamclient.dll.
 
 ## Acceptance still required
 
-- Complete the focused LT-snap playtest on Shipment with one bot.
-  The earlier zero-only bot count was a one-player capacity left by a boundary
-  test, confirmed from the live dvars. The corrected inline controls have passed
-  the user's manual check. Desktop control is currently paused after Escape.
+- Check the revised gameplay controller glyphs on live weapon-pickup and
+  killcam prompts. Desktop control is currently paused after Escape.
 - Broaden physical checks to short taps, held actions, scoreboard, all class/team
   menus, location selection, hotplug and vibration across the other backends.
 - Xbox/XInput hardware, PlayStation Bluetooth, and Steam Input virtual-gamepad

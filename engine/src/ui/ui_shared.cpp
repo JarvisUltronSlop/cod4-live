@@ -1,5 +1,7 @@
 #ifdef COD4_LIVE_CONTROLLER
 #include <live/controller.h>
+#include <live/controller_prompt_text.h>
+#include <live/iw4x/Mapping/Key.hpp>
 #endif
 #include <universal/q_shared.h>
 #include "ui_shared.h"
@@ -5308,8 +5310,32 @@ void __cdecl Item_Text_Paint(UiContext *dc, itemDef_s *item)
         I_strncpyz(text, VariantString, 1024);
         textPtr = text;
     }
+#ifdef COD4_LIVE_CONTROLLER
+    std::string controllerPrompt;
+#endif
     if (*textPtr == 64)
-        textPtr = UI_SafeTranslateString(textPtr + 1);
+    {
+        const char* localizationKey = textPtr + 1;
+        textPtr = UI_SafeTranslateString(localizationKey);
+#ifdef COD4_LIVE_CONTROLLER
+        if (live::controller::IsStockMenuPrompt(localizationKey))
+        {
+            // Measure both input families after a last-input/style change.
+            item->textRect[dc->localClientNum].w = 0.0f;
+            if (live::controller::PromptsActive())
+            {
+                using Controller::mapping::engine_key;
+                const char* escapeName = Key_KeynumToString(K_ESCAPE, 1);
+                const char* localizedEscape = SEH_StringEd_GetString(escapeName);
+                controllerPrompt = live::controller::AdaptStockMenuPrompt(localizationKey, textPtr,
+                    live::controller::KeyName(static_cast<int>(engine_key::button_b), true),
+                    live::controller::KeyName(static_cast<int>(engine_key::button_a), true),
+                    localizedEscape ? localizedEscape : escapeName);
+                if (!controllerPrompt.empty()) textPtr = controllerPrompt.data();
+            }
+        }
+#endif
+    }
     if (*textPtr)
     {
         Item_TextColor(dc, item, (float (*)[4])color);

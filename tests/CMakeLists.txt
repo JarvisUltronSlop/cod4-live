@@ -91,6 +91,26 @@ add_executable(native_enum_tests "${CMAKE_CURRENT_LIST_DIR}/native_enum_tests.cp
 target_compile_features(native_enum_tests PRIVATE cxx_std_20)
 target_include_directories(native_enum_tests PRIVATE "${CMAKE_CURRENT_BINARY_DIR}" "${CMAKE_CURRENT_LIST_DIR}/../engine/src")
 add_test(NAME native_enum COMMAND native_enum_tests)
+set(binding_prompt_source "${CMAKE_CURRENT_BINARY_DIR}/generated_binding_prompts.inc")
+add_custom_command(OUTPUT "${binding_prompt_source}"
+    COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_LIST_DIR}/extract_binding_prompts.py"
+        "${CMAKE_CURRENT_LIST_DIR}/../engine/src" "${binding_prompt_source}"
+    DEPENDS "${CMAKE_CURRENT_LIST_DIR}/extract_binding_prompts.py"
+        "${CMAKE_CURRENT_LIST_DIR}/../engine/src/live/controller.cpp"
+        "${CMAKE_CURRENT_LIST_DIR}/../engine/src/live/controller_glyph.cpp"
+        "${CMAKE_CURRENT_LIST_DIR}/../engine/src/client/cl_keys.cpp"
+        "${CMAKE_CURRENT_LIST_DIR}/../engine/src/client_mp/cl_ui_mp.cpp"
+        "${CMAKE_CURRENT_LIST_DIR}/../engine/src/ui/ui_expressions.cpp"
+    VERBATIM)
+add_executable(binding_prompt_tests "${CMAKE_CURRENT_LIST_DIR}/binding_prompt_tests.cpp" "${binding_prompt_source}"
+    "${CMAKE_CURRENT_LIST_DIR}/../engine/src/live/iw4x/Mapping/Binding.cpp"
+    "${CMAKE_CURRENT_LIST_DIR}/../engine/src/live/iw4x/Mapping/Logical.cpp"
+    "${CMAKE_CURRENT_LIST_DIR}/../engine/src/live/iw4x/Mapping/Key.cpp"
+    "${CMAKE_CURRENT_LIST_DIR}/../engine/src/live/iw4x/Mapping/Glyph.cpp")
+target_compile_features(binding_prompt_tests PRIVATE cxx_std_20)
+target_compile_definitions(binding_prompt_tests PRIVATE COD4_LIVE_CONTROLLER=1)
+target_include_directories(binding_prompt_tests PRIVATE "${CMAKE_CURRENT_BINARY_DIR}" "${CMAKE_CURRENT_LIST_DIR}/../engine/src")
+add_test(NAME binding_prompts COMMAND binding_prompt_tests)
 add_test(NAME controller_assets COMMAND "${Python3_EXECUTABLE}"
     "${CMAKE_CURRENT_LIST_DIR}/../scripts/convert-controller-images.py" --check)
 set(codec_source "${CMAKE_CURRENT_BINARY_DIR}/generated_usercmd_codec.cpp")

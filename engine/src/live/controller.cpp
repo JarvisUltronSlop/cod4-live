@@ -13,6 +13,7 @@
 #include "controller.h"
 #include "input_policy.h"
 #include "controller_policy.h"
+#include "controller_prompt.h"
 #include <universal/q_shared.h>
 #include <client/client.h>
 #include <client_mp/client_mp.h>
@@ -288,6 +289,12 @@ bool GameplayContext()
     return ready && focused && !MenuContext() && !CL_GetLocalClientConnection(0)->demoplaying;
 }
 bool InUse() { return ready && inUse; }
+bool PromptsActive() {
+    const bool liveGameplay=CL_GetLocalClientConnectionState(0)==CA_ACTIVE &&
+        !CL_GetLocalClientConnection(0)->demoplaying &&
+        (!Key_IsCatcherActive(0,KEYCATCH_UI) || UI_GetActiveMenu(0)==UIMENU_SCOREBOARD);
+    return UseControllerPrompts(InUse(),ready && connected,liveGameplay);
+}
 bool HasFocus() { return ready && focused; }
 bool NavigatingMenu() { return navigating; }
 bool MenuOpen() { return controller_ui::IsOpen(); }
@@ -589,7 +596,11 @@ void LocationMove(int, float& x, float& y, float dt, float aspect)
 
 const char* KeyName(int key, bool display)
 {
-    const auto mapped = mapping::key_from_keynum(key);
+    // IW4x's reserved controller range includes 24/25, which have no named
+    // key/glyph. Only expose actual table entries to CoD4's 256-key scans.
+    std::optional<engine_key> mapped;
+    for (const auto candidate:mapping::keys())
+        if (static_cast<int>(candidate)==key) { mapped=candidate; break; }
     if (!mapped) return nullptr;
     if (!display) return mapping::key_name(*mapped);
     std::optional<mapping::glyph_family> override;
@@ -601,17 +612,12 @@ const char* KeyName(int key, bool display)
 
 int CommandKeys(const char* command, int* keys)
 {
-    int count = 0;
-    for (auto key : buttonKeys)
-    {
-        const auto* binding = Key_GetBinding(0, static_cast<int>(key));
-        if (binding && !strcmp(binding, command))
-        {
-            keys[count++] = static_cast<int>(key);
-            if (count == 2) break;
-        }
+    std::array<PromptBinding,buttonKeys.size()> bindings{};
+    for (std::size_t i=0;i<buttonKeys.size();++i) {
+        const int key=static_cast<int>(buttonKeys[i]);
+        bindings[i]={key,Key_GetBinding(0,key)};
     }
-    return count;
+    return ResolveCommandKeys(command ? command : "",bindings,keys);
 }
 
 void Draw()

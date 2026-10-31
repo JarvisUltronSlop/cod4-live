@@ -80,6 +80,23 @@ notes ship in `notices/`. No MW2 executable or compiled retail asset bundle is
 included. Code-owned glyph textures use an isolated `images/live_controller/`
 path and are released/recreated with the renderer.
 
+Gameplay binding prompts resolve the current physical button, including custom
+assignments and all eight layouts. The shared lookup covers pickup/use, reload,
+jump/mantle and killcam actions, ADS, hold breath, stance, melee, scoreboard and
+action slots. It recognizes combined use/reload and sprint/breath bindings, while
+preferring an exact custom action binding. An unbound controller action remains
+unbound instead of showing a keyboard key. A connected controller keeps gameplay
+prompts active while chat or console input changes the last input; actual menus
+still follow the last input device.
+
+The reload warning includes its current binding glyph. The stock end-of-game and
+quick-message exit prompts use the menu Back button (B / Circle), and the airstrike
+location prompt uses its confirmation button (A / Cross). These context controls follow their
+actual menu/location behavior rather than the gameplay Fire or Pause binding.
+Localized wording and color codes are preserved. Escape prompts also recognize
+the localized Escape key name; translations without a matching action token
+receive the glyph as a prefix.
+
 Bindings use persistent CoD key bindings with `BUTTON_A`, `BUTTON_B`, `BUTTON_X`,
 `BUTTON_Y`, `BUTTON_LSHLDR`, `BUTTON_RSHLDR`, `BUTTON_LTRIG`, `BUTTON_RTRIG`,
 `BUTTON_LSTICK`, `BUTTON_RSTICK`, `BUTTON_START`, `BUTTON_BACK`, `DPAD_UP`,
@@ -166,6 +183,14 @@ rates. Those deterministic visibility inputs do not substitute for in-game
 geometry/smoke testing. The integration and native drivers compile into the
 Windows client.
 
+`binding_prompts` compiles the production controller resolver, central CoD4
+binding lookup and localized formatter, device-family selection, and named-glyph
+encoding. It checks the eight real layouts, custom binding precedence, combined
+action aliases, unbound and keyboard fallback, Xbox/PlayStation overrides,
+two-binding output bounds, gameplay/menu/scoreboard/demo states, and localized
+reload/end-of-game/quick-message/airstrike text adaptation. These checks do not
+replace visual and physical confirmation of every gameplay prompt.
+
 On 2026-10-31 a physical DualSense over USB was tested with the production driver
 stack for 30 seconds: 2,523 sampled states decoded, both sticks and both triggers
 reached full range, all 16 normal mapped buttons were observed, and released
@@ -186,7 +211,7 @@ reloads the main menu, and reopens settings. There were no fatal exceptions,
 missing glyph warnings, or native focus-script errors. These checks validate
 startup/reload paths, not the visual appearance of the pages.
 
-The expanded native menu build and twelve engine test suites passed. Later visual
+The expanded native menu build and thirteen engine test suites passed. Later visual
 checks verified the general Controller page, all 16 PlayStation mapping glyphs,
 and the Controller main-menu entry. The user subsequently confirmed that DualSense
 navigation works in the new Controller menus and both Bot Warfare settings can

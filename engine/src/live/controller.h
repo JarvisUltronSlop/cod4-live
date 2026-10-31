@@ -18,6 +18,7 @@ bool FilterMouse(int dx, int dy);
 bool AllowCommand(const char* name);
 void ResetDispatch();
 bool InUse();
+bool PromptsActive();
 bool HasFocus();
 bool NavigatingMenu();
 bool MenuOpen();

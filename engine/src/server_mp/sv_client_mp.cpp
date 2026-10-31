@@ -1129,7 +1129,7 @@ void __cdecl SV_SendClientGameState(client_t *client)
     SV_GetServerStaticHeader();
 }
 
-namespace { bool SV_ApplyControllerPolicy(client_t* client, usercmd_s* cmd); }
+namespace { bool SV_ApplyControllerPolicy(client_t* client, usercmd_s* cmd, bool freshReport); }
 
 void __cdecl SV_ClientEnterWorld(client_t *client, usercmd_s *cmd)
 {
@@ -1139,7 +1139,7 @@ void __cdecl SV_ClientEnterWorld(client_t *client, usercmd_s *cmd)
     }
     // Initial/map-restart commands can reach ClientSpawn before normal UserMove
     // filtering, so they require the same input checks as active commands.
-    if (!SV_ApplyControllerPolicy(client, cmd)) return;
+    if (!SV_ApplyControllerPolicy(client, cmd, cmd != &client->lastUsercmd)) return;
     if (client->header.netchan.remoteAddress.type != NA_BOT && !(cmd->inputFlags & live::ControllerConnected))
     {
         // Keep the authenticated connection primed until a device is present.
@@ -1255,7 +1255,7 @@ struct LiveInputState
 };
 LiveInputState liveInputStates[64];
 
-bool SV_ApplyControllerPolicy(client_t* client, usercmd_s* cmd)
+bool SV_ApplyControllerPolicy(client_t* client, usercmd_s* cmd, bool freshReport)
 {
     // Only internally created bots bypass the controller requirement.
     if (client->header.netchan.remoteAddress.type == NA_BOT) return true;
@@ -1270,7 +1270,10 @@ bool SV_ApplyControllerPolicy(client_t* client, usercmd_s* cmd)
         state.challenge = client->challenge;
     }
     state.lastServerTime = svs.time;
-    const auto action = state.policy.Update(static_cast<uint32_t>(svs.time), cmd->inputFlags);
+    // Fast-restart paths replay lastUsercmd. Preserve enforcement state but do
+    // not treat a replay as a fresh input observation or a fresh clean interval.
+    const auto action = freshReport ? state.policy.Update(static_cast<uint32_t>(svs.time), cmd->inputFlags)
+        : (live::ValidInput(cmd->inputFlags) ? live::InputAction::None : live::InputAction::Invalid);
     switch (action)
     {
     case live::InputAction::Invalid:
@@ -1318,7 +1321,7 @@ void __cdecl SV_ClientThink(client_t *cl, usercmd_s *cmd)
 
     if (cmd->serverTime - svs.time <= 20000)
     {
-        if (cl->header.state == CS_ACTIVE && !SV_ApplyControllerPolicy(cl, cmd)) return;
+        if (cl->header.state == CS_ACTIVE && !SV_ApplyControllerPolicy(cl, cmd, true)) return;
         memcpy(&cl->lastUsercmd, cmd, sizeof(cl->lastUsercmd));
         if (cl->header.state == CS_ACTIVE)
         {
@@ -1339,6 +1342,19 @@ void __cdecl SV_ClientThink(client_t *cl, usercmd_s *cmd)
         v2 = va("Invalid command time %i from client %s, current server time is %i", cmd->serverTime, cl->name, svs.time);
         Com_PrintError(CON_CHANNEL_SERVER, v2);
     }
+}
+
+namespace
+{
+void SV_TryControllerAdmission(client_t* client, usercmd_s* commands, int commandCount)
+{
+    if (client->header.state != CS_CLIENTLOADING || commandCount <= 0) return;
+    // A primed client has no active snapshots, so its simulation clock can stay
+    // at zero. The newly accepted netchannel packet still carries a current
+    // device report. Inspect its latest command, not retransmitted older entries.
+    // Netchan_Process already discards duplicate/out-of-order packets.
+    SV_ClientEnterWorld(client, &commands[commandCount - 1]);
+}
 }
 
 void __cdecl SV_UserMove(client_t *cl, msg_t *msg, int delta)
@@ -1537,11 +1553,7 @@ void __cdecl SV_UserMove(client_t *cl, msg_t *msg, int delta)
                     cl->frames[cl->messageAcknowledge & 0x1F].messageAcked = Sys_Milliseconds();
                 if (cl->header.state == CS_CLIENTLOADING)
                 {
-                    for (i = 0; i < cmdCount && cl->header.state == CS_CLIENTLOADING; ++i)
-                    {
-                        if (cmds[i].serverTime > cl->lastUsercmd.serverTime)
-                            SV_ClientEnterWorld(cl, &cmds[i]);
-                    }
+                    SV_TryControllerAdmission(cl, cmds, cmdCount);
                     if (cl->header.state == CS_ZOMBIE) return;
                 }
                 if (!sv_pure->current.enabled || cl->pureAuthentic)

@@ -66,6 +66,18 @@ int main()
     Check(up > 0 && std::abs(inverted.process(look).pitch_delta.value + up) < .00001f,
         "inverted pitch must reverse direction exactly once");
     using namespace live::controller;
+    Check(WeaponAllowsAssist(false, 1), "free-fire weapons, including RPGs, retain weapon-defined aim assist");
+    Check(!WeaponAllowsAssist(true, 1), "lock-on launchers must not receive controller target assist");
+    Check(!WeaponAllowsAssist(false, 0) && !WeaponAllowsAssist(true, 0), "empty weapons must not receive slowdown");
+    Check(UsingOffhand(UsingOffhandFlag, true), "equipped offhand weapon must use offhand assist rules");
+    Check(!UsingOffhand(0, true) && !UsingOffhand(UsingOffhandFlag, false),
+        "weapon state or offhand flag alone must not identify an offhand weapon");
+    Check(PreserveMenuFocus(true, true, 0, 0),
+        "stationary mouse poll must not clear controller menu focus");
+    Check(!PreserveMenuFocus(true, true, 1, 0) && !PreserveMenuFocus(true, true, 0, -1),
+        "real mouse movement must return menu control to the mouse");
+    Check(!PreserveMenuFocus(false, true, 0, 0) && !PreserveMenuFocus(true, false, 0, 0),
+        "focus preservation only applies to controller menu navigation");
     for (const auto command : {"+attack", "-attack", "+SPEED", "+actionslot", "toggleads", "weapnext", "goprone"})
         Check(IsGameplayCommand(command), "console gameplay command escaped provenance gate");
     for (const auto command : {"+talk", "-scores", "messagemode", "exec", "bind", "controller_settings", ""})

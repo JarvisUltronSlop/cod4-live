@@ -677,7 +677,24 @@ void __cdecl SV_ConnectionlessPacket(netadr_t from, msg_t *msg)
     //    return;
     //}
 
-    s = MSG_ReadStringLine(msg);
+    // A full 1024-byte Steam ticket becomes 1368 Base64 characters. The stock
+    // 1024-byte line reader silently truncates it, so bound this command separately.
+    char authLine[1536];
+    if (msg->cursize >= 17 && !I_strnicmp(reinterpret_cast<const char*>(msg->data + 4), "getchallenge ", 13)) {
+        unsigned count = 0;
+        for (;;) {
+            if (msg->readcount >= msg->cursize) break; // NET_OutOfBandPrint omits the final NUL.
+            const int value = MSG_ReadByte(msg);
+            if (value < 0 || count >= sizeof(authLine) - 1) return;
+            if (value == 0 || value == '\n') break;
+            if (value < 32 || value > 126) return;
+            authLine[count++] = static_cast<char>(value);
+        }
+        authLine[count] = 0;
+        s = authLine;
+    } else {
+        s = MSG_ReadStringLine(msg);
+    }
     SV_Cmd_TokenizeString(s);
     c = SV_Cmd_Argv(0);
 

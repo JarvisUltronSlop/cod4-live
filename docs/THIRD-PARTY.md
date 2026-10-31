@@ -12,11 +12,14 @@ cod4-live is distributed under GNU GPL version 3; see the root LICENSE.
   https://github.com/JarvisUltronSlop/cod4x1khz at
   `59b5d59fefc6b89e251da5bdd1ccdc11dbf00098` under GPLv3.
 - Microsoft D3DX runtime: Microsoft.DXSDK.D3DX 9.29.952.8, SHA-256 pinned in
-  `upstream-lock.json`; its license accompanies packaged builds.
+  `upstream-lock.json`; its license and third-party NOTICE accompany packaged builds.
 - Steamworks interfaces/runtime retain Valve's applicable SDK terms and notices.
   Build preparation restores the SDK binary matching the pinned engine headers.
 - OpenAL Soft 1.25.2, LGPL: the existing KisakCOD audio backend replaces the
   incompatible retail Miles ABI. Preserve its license and corresponding source.
+  Packaging creates `OpenAL-Soft-source.zip`; distribute it with
+  `cod4-live-source.zip` and the matching installer. The full project source and
+  build scripts allow rebuilding and relinking against a modified audio library.
 - Tracy v0.12.2 retains its upstream license and is fetched for build headers;
   instrumentation is disabled in the default build.
 

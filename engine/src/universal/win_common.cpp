@@ -397,17 +397,24 @@ char *__cdecl Sys_DefaultInstallPath()
 
     if (!exePath[0])
     {
+#ifndef COD4LIVE
         if (IsDebuggerPresent())
         {
             v0 = Sys_Cwd();
             I_strncpyz(exePath, v0, 256);
         }
         else
+#endif
         {
             hinst = GetModuleHandleA(0);
             len = GetModuleFileNameA(hinst, exePath, 0x100u);
+#ifdef COD4LIVE
+            if (len == 0 || len >= sizeof(exePath))
+                Sys_Error("cod4-live cannot resolve its install directory (path too long or unavailable).");
+#else
             if (len == 256)
                 len = 255;
+#endif
             while (len && exePath[len] != 92 && exePath[len] != 47 && exePath[len] != 58)
                 --len;
             exePath[len] = 0;

@@ -41,7 +41,7 @@ system or a guarantee about modified Steam runtimes.
 
 ## Validation
 
-`steam_auth_tests` exercises the production strict decoder and ownership state
+The `steam_auth` CTest case exercises the production strict decoder and ownership state
 machine, including malformed/oversized tickets, overflowed IDs, Family Sharing,
 timeout boundaries, revocation, and late success after rejection.
 
@@ -55,7 +55,9 @@ service availability, so they are not automatically run by CTest:
   initialization.
 - `steam_game_handshake_probe 28970`: exercises a running local game server's
   real nonce/ownership/admission path and checks that a premature connect fails.
-  `28970 --tampered` checks rejection of a corrupted Steam ticket.
+  `28970 --tampered` checks rejection of a corrupted Steam ticket;
+  `28970 --full-ticket` verifies that a complete 1024-byte invalid ticket reaches
+  the verifier without being truncated by the legacy command reader.
 
 On October 31, 2026, the API probe passed owner validation, anonymous server login,
 asynchronous success, and cancellation revocation for both SteamID-bound and
@@ -64,6 +66,22 @@ was running on that host; this does not prove a clean machine without Steam clie
 installation has all dedicated redistributables. No non-owner or Family Sharing
 account was available for a live account test; those policy cases are covered by
 the deterministic tests.
+
+The packaged `install-server-runtime.ps1` was then run against an isolated server
+folder. It downloaded app 1007 build 25329704 directly through anonymous Valve
+SteamCMD, verified the four Win32 DLL signatures, and installed them locally. The
+server-only API probe reported that it loaded that folder's `steamclient.dll` and
+connected anonymously without initializing the client/user API. This checks local
+redistributable loading; a separate clean Windows VM was not available for testing.
+
+The compiled OpenAL dedicated server was also exercised on `127.0.0.1:28970`
+with `mp_crash` loaded. The real UDP probe passed address-challenge exchange,
+rejection of a connect before ownership validation, asynchronous verified
+challenge delivery, authenticated connection admission, and server disconnect
+after ticket cancellation. Separate runs rejected a corrupted signed ticket and
+an invalid full-size 1024-byte ticket, with the latter receiving its address
+challenge before rejection (confirming that the legacy line limit no longer
+truncates the request). A fresh valid ticket could reconnect after cleanup.
 
 References: [Steam authentication](https://partner.steamgames.com/doc/features/auth),
 [GameServer API](https://partner.steamgames.com/doc/api/ISteamGameServer), and

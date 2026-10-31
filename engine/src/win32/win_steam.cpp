@@ -100,8 +100,18 @@ bool InitServer() {
     SetEnvironmentVariableA("SteamAppId", "7940");
     const int game_port = Dvar_GetInt("net_port");
     if (game_port <= 0 || game_port >= 65534) return false;
+    netadr_t bind_address{};
+    char bind_text[256];
+    I_strncpyz(bind_text, Dvar_GetString("net_ip"), sizeof(bind_text));
+    if (!NET_StringToAdr(bind_text, &bind_address)) {
+        Com_PrintError(CON_CHANNEL_SERVER, "[cod4-live] Invalid Steam authentication bind address.\n");
+        return false;
+    }
+    const uint32 bind_ip = bind_address.type == NA_LOOPBACK ? 0x7f000001u :
+        (uint32(bind_address.ip[0]) << 24) | (uint32(bind_address.ip[1]) << 16) |
+        (uint32(bind_address.ip[2]) << 8) | bind_address.ip[3];
     SteamErrMsg error{};
-    if (SteamGameServer_InitEx(0, static_cast<uint16>(game_port), static_cast<uint16>(game_port + 1),
+    if (SteamGameServer_InitEx(bind_ip, static_cast<uint16>(game_port), static_cast<uint16>(game_port + 1),
         eServerModeAuthentication, "0.1.0.0", &error) != k_ESteamAPIInitResult_OK) {
         Com_PrintError(CON_CHANNEL_SERVER, "[cod4-live] SteamGameServer initialization failed: %s\n", error);
         return false;

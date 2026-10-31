@@ -9,6 +9,9 @@
 #include <win32/win_storage.h>
 #include <win32/win_local.h>
 #include <win32/win_localize.h>
+#ifdef COD4LIVE
+#include <win32/win_steam.h>
+#endif
 
 const dvar_t *ui_playerProfileAlreadyChosen;
 const dvar_t *com_playerProfile;
@@ -166,7 +169,13 @@ char __cdecl Com_DeletePlayerProfile(const char *profileName)
     if (!Com_IsValidPlayerProfileDir(profileName))
         return 0;
     Com_BuildPlayerProfilePathForPlayer(profilePath, 64, profileName, "");
-    FS_BuildOSPath((char *)fs_basepath->current.integer, (char*)"players", profilePath, osPath);
+    FS_BuildOSPath(
+#ifdef COD4LIVE
+            fs_homepath->current.string,
+#else
+            fs_basepath->current.string,
+#endif
+            "players", profilePath, osPath);
     if (!Sys_RemoveDirTree(osPath))
         return 0;
     if (!I_stricmp(profileName, com_playerProfile->current.string))
@@ -186,8 +195,30 @@ void __cdecl Com_InitPlayerProfiles(int localClientNum)
         "true if player profile has been selected.");
     Dvar_ChangeResetValue((dvar_t*)ui_playerProfileAlreadyChosen, 1);
     com_playerProfile = Dvar_RegisterString("com_playerProfile", (char *)"", DVAR_ROM, "Player profile");
-    if (!Com_SetInitialPlayerProfile(localClientNum))
-        Com_ExecStartupConfigs(localClientNum, 0);
+    if (Com_SetInitialPlayerProfile(localClientNum))
+    {
+#ifdef COD4LIVE
+        Dvar_SetInt(ui_playerProfileAlreadyChosen, 1);
+#endif
+        return;
+    }
+#if defined(COD4LIVE) && !defined(KISAK_DEDICATED)
+    // A controller-first install must be able to reach multiplayer without
+    // first typing a profile name. Existing profiles/configs remain untouched.
+    char initialProfile[] = "cod4-live";
+    const bool newProfile = !Com_IsValidPlayerProfileDir(initialProfile);
+    if ((!newProfile || Com_NewPlayerProfile(initialProfile)) &&
+        FS_WriteFileToDir("profiles/active.txt", "players", initialProfile, sizeof(initialProfile) - 1))
+    {
+        Com_SetPlayerProfile(localClientNum, initialProfile);
+        if (newProfile)
+            Dvar_SetStringByName("name", g_steamInitialized && g_steamName[0] ? g_steamName : initialProfile);
+        Dvar_SetInt(ui_playerProfileAlreadyChosen, 1);
+        return;
+    }
+    Com_PrintWarning(CON_CHANNEL_SYSTEM, "Unable to create the local cod4-live profile; check install directory permissions.\n");
+#endif
+    Com_ExecStartupConfigs(localClientNum, 0);
 }
 
 char __cdecl Com_NewPlayerProfile(const char *profileName)
@@ -203,7 +234,13 @@ char __cdecl Com_NewPlayerProfile(const char *profileName)
     else
     {
         Com_BuildPlayerProfilePathForPlayer(profilePath, 64, profileName, "");
-        FS_BuildOSPath((char *)fs_basepath->current.integer, (char*)"players", profilePath, osPath);
+        FS_BuildOSPath(
+#ifdef COD4LIVE
+            fs_homepath->current.string,
+#else
+            fs_basepath->current.string,
+#endif
+            "players", profilePath, osPath);
         if (FS_CreatePath(osPath))
         {
             Com_Printf(CON_CHANNEL_SYSTEM, "Unable to create new profile path: %s\n", osPath);
@@ -540,11 +577,21 @@ void __cdecl Com_SetRecommended(int localClientNum, int restart)
     Com_SetCSV(1);
     if (!Com_SetRecommendedCpu(localClientNum, &info, &text))
     {
+#ifdef COD4LIVE
+        Com_PrintWarning(CON_CHANNEL_SYSTEM, "No legacy CPU preset matches this computer; retaining current defaults.\n");
+#else
         Sys_GetInfo(&info);
         Com_Error(ERR_FATAL, "KISAK GHZ %f, %d", info.configureGHz, info.sysMB);
+#endif
     }
     if (!Com_SetRecommendedGpu(&info, &text))
+    {
+#ifdef COD4LIVE
+        Com_PrintWarning(CON_CHANNEL_SYSTEM, "No legacy GPU preset matches %s; retaining current defaults.\n", info.gpuDescription);
+#else
         Com_Error(ERR_FATAL, "KISAK GPU %s", info.gpuDescription);
+#endif
+    }
     Com_EndParseSession();
     checksum = Com_ConfigureChecksum(csv, filesize);
     FS_FreeFile(csv);
@@ -563,6 +610,11 @@ bool __cdecl Sys_ShouldUpdateForInfoChange()
     char *v3; // [esp-8h] [ebp-8h]
 
     Sys_ArchiveInfo(0);
+#ifdef COD4LIVE
+    // Keep the player's settings when hardware changes. Graphics options are
+    // available in-game without a mouse-only Windows reset dialog.
+    return false;
+#endif
     v3 = Win_LocalizeRef("WIN_COMPUTER_CHANGE_TITLE");
     v2 = Win_LocalizeRef("WIN_COMPUTER_CHANGE_BODY");
     ActiveWindow = GetActiveWindow();
@@ -575,6 +627,9 @@ bool __cdecl Sys_ShouldUpdateForConfigChange()
     char *v2; // [esp-Ch] [ebp-Ch]
     char *v3; // [esp-8h] [ebp-8h]
 
+#ifdef COD4LIVE
+    return false;
+#endif
     v3 = Win_LocalizeRef("WIN_CONFIGURE_UPDATED_TITLE");
     v2 = Win_LocalizeRef("WIN_CONFIGURE_UPDATED_BODY");
     ActiveWindow = GetActiveWindow();

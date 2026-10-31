@@ -40,10 +40,11 @@ From PowerShell:
 
 Preparation restores pinned build dependencies and copies owned data to ignored
 `runtime/`. The client and server are `runtime/cod4-live.exe` and
-`runtime/cod4-live_server.exe`. Run them with that folder as the working directory.
+`runtime/cod4-live_server.exe`. Both use their installation folder when launched.
 The standalone installer and corresponding source archive are written to `dist/`.
 
 Read [installation and Steam Input](docs/INSTALLER.md),
+[controller settings](docs/CONTROLLER.md), [server connections](docs/NETWORK.md),
 [third-party provenance](docs/THIRD-PARTY.md), and
 [validation status](docs/VALIDATION.md). The exact upstream revisions are in
 `upstream-lock.json`. Classic simulation is retained; the cod4x1khz 1,000 Hz engine

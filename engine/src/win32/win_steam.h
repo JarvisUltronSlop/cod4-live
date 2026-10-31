@@ -20,3 +20,6 @@ void Steam_OnClientDropped(const char* id, netadr_t, int challenge);
 void Steam_CheckClients();
 void Steam_ServerShutdown();
 extern bool g_steamInitialized;
+
+// Cached display name from the authenticated local Steam session.
+extern char g_steamName[64];

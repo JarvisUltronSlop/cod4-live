@@ -786,6 +786,15 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	Sys_InitializeCriticalSections();
 	Sys_InitMainThread();
 	track_init();
+#ifdef COD4LIVE
+	// Localization and a few retail asset loaders run before the virtual file
+	// system exists. Steam, shortcuts and shells need not launch from this folder.
+	if (!SetCurrentDirectoryA(Sys_DefaultInstallPath()))
+	{
+		MessageBoxA(nullptr, "cod4-live could not open its installation directory.", "cod4-live", MB_OK | MB_ICONERROR);
+		return 1;
+	}
+#endif
 	Win_InitLocalization();
 
 	const bool allowDupe = I_strnicmp(lpCmdLine, "allowdupe", 9) && lpCmdLine[9] <= ' ';

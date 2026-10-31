@@ -89,8 +89,11 @@ int main()
     Require(client.lastUsercmd.forwardmove == 45 && starts == 2, "new session resets old enforcement state");
 
     // Map restart may pass lastUsercmd itself; this alias must still neutralize safely.
-    client.lastUsercmd.inputFlags = 0;
-    client.lastUsercmd.buttons = BUTTON_ATTACK;
+    command = client.lastUsercmd;
+    command.serverTime = 5002;
+    command.inputFlags = 0;
+    command.buttons = BUTTON_ATTACK;
+    SV_ClientThink(&client, &command);
     SV_ClientEnterWorld(&client, &client.lastUsercmd);
     Require(client.lastUsercmd.buttons == 0 && client.lastUsercmd.forwardmove == 0,
         "map-restart aliased command is neutralized");
@@ -104,8 +107,11 @@ int main()
     SV_ClientEnterWorld(&client, &client.lastUsercmd);
     Require(drops == 1 && starts == 2, "restart retains remaining grace without spawning");
     svs.time = 35001;
-    client.lastUsercmd.serverTime = 35001;
     SV_ClientEnterWorld(&client, &client.lastUsercmd);
+    Require(drops == 1, "replayed restart command is not fresh input evidence");
+    command = client.lastUsercmd;
+    command.serverTime = 35001;
+    SV_ClientEnterWorld(&client, &command);
     Require(drops == 2 && client.header.state == CS_ZOMBIE, "restart must not reset thirty-second timer");
 
     client = {};
@@ -137,5 +143,42 @@ int main()
     const int previousStarts = starts;
     SV_ClientEnterWorld(&client, &command);
     Require(starts == previousStarts && drops == 3, "failed Steam verification cannot enter world");
+
+    // The real CA_PRIMED client has no active snapshots: serverTime can remain0
+    // throughout admission. Newly accepted network packets must still report
+    // device state and advance the server-owned reconnect deadline.
+    verified = true;
+    client = {};
+    client.header.netchan.remoteAddress.type = NA_IP;
+    client.challenge = 4;
+    client.lastConnectTime = 60000;
+    svs.time = 60000;
+    usercmd_s primed[2]{};
+    const int startsBeforePrimed = starts;
+    SV_TryControllerAdmission(&client, primed, 2);
+    Require(client.header.state == CS_CLIENTLOADING && starts == startsBeforePrimed,
+        "zero-clock client remains primed without a controller");
+    for (int time = 61000; time < 90000; time += 1000)
+    {
+        svs.time = time;
+        SV_TryControllerAdmission(&client, primed, 2);
+        Require(drops == 3, "primed zero-clock client gets full grace interval");
+    }
+    svs.time = 90000;
+    SV_TryControllerAdmission(&client, primed, 2);
+    Require(drops == 4, "primed zero-clock client must time out after thirty seconds");
+
+    client = {};
+    client.header.netchan.remoteAddress.type = NA_IP;
+    client.challenge = 5;
+    client.lastConnectTime = 100000;
+    svs.time = 100000;
+    SV_TryControllerAdmission(&client, primed, 2);
+    // Older resent command says absent; latest reports reconnection at same time0.
+    primed[1].inputFlags = live::ControllerConnected;
+    svs.time += 100;
+    SV_TryControllerAdmission(&client, primed, 2);
+    Require(client.header.state == CS_ACTIVE && starts == startsBeforePrimed + 1,
+        "latest controller report must admit zero-clock client");
     std::cout << "PASS: production server initial-entry, active-command and restart enforcement\n";
 }

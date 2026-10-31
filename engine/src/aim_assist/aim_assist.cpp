@@ -1,5 +1,8 @@
 #include <universal/q_shared.h>
 #include "aim_assist.h"
+#ifdef COD4LIVE
+#include <live/aim_tuning.h>
+#endif
 #include <qcommon/mem_track.h>
 #include <universal/com_math.h>
 #include <qcommon/cmd.h>
@@ -78,12 +81,14 @@ void __cdecl AimAssist_Init(int32_t localClientNum)
         Com_sprintf(graphName, 0x80u, "aim_assist/view_input_%d.graph", graphIndex);
         GraphFloat_Load(&aaInputGraph[graphIndex], graphName, 1.0);
     }
+#ifndef COD4LIVE
     Cbuf_InsertText(0, "exec devgui_aimassist\n");
     for (graphIndex = 0; graphIndex < 4; ++graphIndex)
     {
         Com_sprintf(graphName, 0x80u, "Aim Assist/Input Graph:1/Graph %d", graphIndex);
         GraphFloat_CreateDevGui(&aaInputGraph[graphIndex], graphName);
     }
+#endif
 }
 
 void AimAssist_RegisterDvars()
@@ -360,6 +365,24 @@ void AimAssist_RegisterDvars()
         0,
         DVAR_CHEAT,
         "Scale the influence of each input axis so that the major axis has more influence on the control");
+#endif
+#ifdef COD4LIVE
+    // All gameplay tuning stays identical between controller players. Debug
+    // readouts remain available, but neither configs nor DevGUI change assist.
+    const dvar_t* fixed[] = {
+        aim_input_graph_enabled, aim_input_graph_index,
+        aim_turnrate_pitch, aim_turnrate_pitch_ads, aim_turnrate_yaw, aim_turnrate_yaw_ads,
+        aim_accel_turnrate_enabled, aim_accel_turnrate_lerp,
+        aim_slowdown_enabled, aim_slowdown_region_width, aim_slowdown_region_height,
+        aim_slowdown_pitch_scale, aim_slowdown_pitch_scale_ads,
+        aim_slowdown_yaw_scale, aim_slowdown_yaw_scale_ads,
+        aim_autoaim_enabled, aim_autoaim_lerp, aim_autoaim_region_width, aim_autoaim_region_height,
+        aim_automelee_enabled, aim_automelee_lerp, aim_automelee_region_width,
+        aim_automelee_region_height, aim_automelee_range,
+        aim_lockon_enabled, aim_lockon_deflection, aim_lockon_strength,
+        aim_lockon_region_width, aim_lockon_region_height, aim_scale_view_axis
+    };
+    for (const auto* dvar : fixed) live::LockAimTuning(dvar);
 #endif
 }
 

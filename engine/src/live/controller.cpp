@@ -52,7 +52,8 @@ std::array<bool, 2> triggers{};
 std::array<unsigned, 256> pressedAt{};
 bool ready{}, focused{}, connected{}, inUse{}, injecting{}, navigating{}, settings{}, pendingMouse{}, pendingKeyboard{};
 bool usedController{}, previousGameplay{}, dispatching{};
-unsigned lastSample{}, lastWarning{};
+unsigned lastSample{}, lastWarning{}, disconnectedAt{};
+bool disconnectPrompt{};
 int mode{-1}, selectedSetting{};
 std::string configuredLayout;
 unsigned rumbleEnd{};
@@ -72,6 +73,17 @@ constexpr std::array<button, 16> physicalButtons{
 constexpr const char* layouts[]{"buttons_default", "buttons_tactical", "buttons_lefty", "buttons_nomad",
     "buttons_default_alt", "buttons_tactical_alt"};
 constexpr const char* sticks[]{"thumbstick_default", "thumbstick_southpaw", "thumbstick_legacy", "thumbstick_legacysouthpaw"};
+constexpr const char* layoutLabels[]{"Default", "Tactical", "Left handed", "Nomad", "Default flipped", "Tactical flipped"};
+constexpr const char* stickLabels[]{"Standard", "Southpaw", "Legacy", "Legacy southpaw"};
+
+template<std::size_t N>
+const char* SettingLabel(const char* value, const char* const (&names)[N], const char* const (&labels)[N])
+{
+    for (std::size_t i = 0; i < N; ++i)
+        if (!strcmp(value, names[i])) return labels[i];
+    return "Custom";
+}
+
 
 void SetInUse(bool value)
 {
@@ -87,6 +99,15 @@ bool MenuContext()
     if (UI_GetActiveMenu(0) == UIMENU_SCOREBOARD) catchers &= ~KEYCATCH_UI;
     return settings || CL_GetLocalClientConnectionState(0) != CA_ACTIVE ||
         (catchers & (KEYCATCH_UI | KEYCATCH_CONSOLE | KEYCATCH_MESSAGE | KEYCATCH_SCRIPT)) != 0;
+}
+
+void UpdateDisconnectPrompt()
+{
+    const auto state = CL_GetLocalClientConnectionState(0);
+    const bool missing = !connected && (state == CA_PRIMED || state == CA_ACTIVE) &&
+        !CL_GetLocalClientConnection(0)->demoplaying;
+    if (missing && !disconnectPrompt) disconnectedAt = Sys_Milliseconds();
+    disconnectPrompt = missing;
 }
 
 void Execute(const std::string& command)
@@ -313,6 +334,7 @@ void Shutdown()
     devices.reset();
     active = {};
     connected = false;
+    disconnectPrompt = false;
     mode = -1;
     ready = false;
     Cmd_RemoveCommand("controller_settings");
@@ -371,6 +393,7 @@ bool AllowCommand(const char* name)
 bool FilterMouse(int dx, int dy)
 {
     if (!ready) return false;
+    if (PreserveMenuFocus(inUse, MenuContext(), dx, dy)) return true;
     if (dx || dy)
     {
         SetInUse(false);
@@ -529,6 +552,7 @@ void Frame(bool hasFocus)
 
 std::uint8_t BeginCommand()
 {
+    UpdateDisconnectPrompt();
     const bool attempt = KeyboardAttempt();
     std::uint8_t flags = connected ? ControllerConnected : 0;
     if (connected && usedController && GameplayContext()) flags |= ControllerActive;
@@ -634,11 +658,25 @@ int CommandKeys(const char* command, int* keys)
 void Draw()
 {
     if (!ready || !cls.uiStarted || !cls.rendererStarted) return;
+    UpdateDisconnectPrompt();
     const ScreenPlacement* placement = &scrPlaceFull;
     const float white[]{.94f, .94f, .90f, 1.0f}, gold[]{.78f, .66f, .35f, 1.0f};
     auto text = [&](const char* message, float x, float y, float scale, const float* color)
     {
         UI_DrawText(placement, message, 1024, UI_GetFontHandle(placement, 0, scale), x, y, 0, 0, scale, color, 0);
+    };
+    auto drawConnectionPrompt = [&](bool compact)
+    {
+        if (!disconnectPrompt) return;
+        const unsigned elapsed = Sys_Milliseconds() - disconnectedAt;
+        const unsigned remaining = elapsed >= InputPolicy::DisconnectGraceMs ? 0 :
+            (InputPolicy::DisconnectGraceMs - elapsed + 999) / 1000;
+        const bool joining = CL_GetLocalClientConnectionState(0) == CA_PRIMED;
+        char message[160];
+        sprintf_s(message, "%s - disconnect in %u seconds",
+            joining ? "Connect a controller to join" : "Reconnect a controller to play", remaining);
+        text(message, compact ? 65.0f : 108.0f, compact ? 442.0f : 185.0f,
+            compact ? .20f : .28f, gold);
     };
     if (settings)
     {
@@ -653,8 +691,8 @@ void Draw()
         sprintf_s(lines[4], "Inner deadzone: %.2f", inner->current.value);
         sprintf_s(lines[5], "Outer deadzone: %.2f", outer->current.value);
         sprintf_s(lines[6], "Trigger threshold: %.2f", triggerDeadzone->current.value);
-        sprintf_s(lines[7], "Buttons: %s", buttonConfig->current.string);
-        sprintf_s(lines[8], "Sticks: %s", stickConfig->current.string);
+        sprintf_s(lines[7], "Buttons: %s", SettingLabel(buttonConfig->current.string, layouts, layoutLabels));
+        sprintf_s(lines[8], "Sticks: %s", SettingLabel(stickConfig->current.string, sticks, stickLabels));
         sprintf_s(lines[9], "Button prompts: %s", style->current.integer == 1 ? "PlayStation" : style->current.integer == 2 ? "Xbox" : "Automatic");
         sprintf_s(lines[10], "Vibration: %s", rumble->current.enabled ? "On" : "Off");
         const auto* fov = Dvar_FindVar("cg_fovScale");
@@ -666,6 +704,7 @@ void Draw()
         }
         text("D-pad: select / adjust     B or Circle: back", 65, 395, .22f, gold);
         text("Steam Input must output gamepad controls, not mouse or keyboard.", 65, 419, .18f, white);
+        drawConnectionPrompt(true);
         return;
     }
     if (MenuContext() && !Key_IsCatcherActive(0, KEYCATCH_CONSOLE | KEYCATCH_MESSAGE))
@@ -675,11 +714,9 @@ void Draw()
             KeyName(1, true), KeyName(2, true), KeyName(4, true));
         text(hint, 30, 465, .22f, gold);
     }
-    if (CL_GetLocalClientConnectionState(0) == CA_ACTIVE)
-    {
-        if (!connected) text("Reconnect a controller to play", 180, 185, .32f, gold);
-        else if (lastWarning && Sys_Milliseconds() - lastWarning < 1500)
-            text("Controller required - keyboard/mouse gameplay blocked", 95, 185, .27f, gold);
-    }
+    drawConnectionPrompt(false);
+    if (CL_GetLocalClientConnectionState(0) == CA_ACTIVE && connected &&
+        lastWarning && Sys_Milliseconds() - lastWarning < 1500)
+        text("Controller required - keyboard/mouse gameplay blocked", 95, 185, .27f, gold);
 }
 }

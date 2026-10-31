@@ -3,6 +3,26 @@
 
 namespace live::controller
 {
+// The legacy mouse poll emits an event even when the cursor did not move.
+// Routing that event into UI hover clears controller-selected item focus.
+constexpr bool PreserveMenuFocus(bool controllerInUse, bool menu, int dx, int dy)
+{
+    return controllerInUse && menu && dx == 0 && dy == 0;
+}
+
+// Matches IW4x's weapon rule. A free-fire RPG is eligible when its weapon
+// definition supplies range/ammunition; only weapons requiring lock-on opt out.
+constexpr bool WeaponAllowsAssist(bool requireLockonToFire, int ammunition)
+{
+    return !requireLockonToFire && ammunition > 0;
+}
+
+inline constexpr unsigned UsingOffhandFlag = 0x2;
+constexpr bool UsingOffhand(unsigned weaponFlags, bool offhandWeapon)
+{
+    return (weaponFlags & UsingOffhandFlag) != 0 && offhandWeapon;
+}
+
 // The physical source is attached to command dispatch, never inferred from the
 // last UI device. This also covers config/console actions queued for later.
 inline bool IsGameplayCommand(std::string_view name)

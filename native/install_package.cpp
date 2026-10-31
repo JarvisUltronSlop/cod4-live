@@ -316,7 +316,7 @@ bool Inspect(const fs::path &game, const fs::path &destination, Plan &result, st
         }
         if (plan.repair && running(plan.destination)) {
             error =
-                "Close the installed game, server manager and dedicated server before repairing";
+                "Close the installed game and dedicated server before repairing";
             return false;
         }
         bool multiplayer = false, iwd = false, common = false, code = false, localized = false;
@@ -532,7 +532,7 @@ bool Install(const Plan &plan, std::atomic_bool &cancel, Progress progress, std:
             }
         }
         cleanup(stage, plan.destination.parent_path());
-        progress(100, "Installed successfully. Launch the blue-icon game or Server Manager.");
+        progress(100, "Installed successfully. Launch cod4-live or host a server.");
         return true;
     } catch (const std::exception &e) {
         error = e.what();

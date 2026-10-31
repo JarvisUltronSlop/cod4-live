@@ -40,11 +40,12 @@ static std::string receive(SOCKET socket, unsigned timeout) {
 }
 static void transmit(SOCKET socket, const std::string& message) {
     std::string packet(4, static_cast<char>(255)); packet += message;
-    send(socket, packet.c_str(), static_cast<int>(packet.size() + 1), 0);
+    send(socket, packet.data(), static_cast<int>(packet.size()), 0);
 }
 int main(int argc, char** argv) {
     const int port = argc > 1 ? std::atoi(argv[1]) : 28970;
-    const bool tampered = argc > 2 && !std::strcmp(argv[2], "--tampered");
+    const bool full_ticket = argc > 2 && !std::strcmp(argv[2], "--full-ticket");
+    const bool tampered = full_ticket || (argc > 2 && !std::strcmp(argv[2], "--tampered"));
     if (port <= 0 || port > 65535) return 1;
     SetEnvironmentVariableA("SteamAppId", "7940");
     SteamErrMsg error{};
@@ -60,6 +61,7 @@ int main(int argc, char** argv) {
         if (!result.ready) outcome = 3;
         else {
             if (tampered) ticket[size / 2] ^= 0x80;
+            if (full_ticket) { std::memset(ticket, 0, sizeof(ticket)); size = sizeof(ticket); }
             const auto encoded = encode(ticket, size);
             WSADATA wsa{}; WSAStartup(MAKEWORD(2, 2), &wsa);
             SOCKET socket_handle = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);

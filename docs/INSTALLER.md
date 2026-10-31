@@ -37,9 +37,22 @@ Run the dedicated binary from the installed folder:
 ```
 
 Use a normal CoD4 server configuration for maps and modes. Server authentication
-uses Steam's game-server API and requires network access to Steam. It does not
-require a Steam client login on the dedicated host. All human players must pass
-direct-ownership verification and controller enforcement. This project does not
+uses Steam's game-server API and requires network access to Steam. Dedicated hosts
+need Valve's Steam server runtime; an installed Steam client supplies it on a
+gaming PC. A separate Windows host must install the dedicated redistributables
+using the supplied `install-server-runtime.ps1` before starting the server. The
+server authenticates anonymously and does not require a Steam account login.
+Run this from the installed folder on the dedicated host:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\install-server-runtime.ps1
+```
+
+The helper downloads app 1007 anonymously using Valve's SteamCMD and verifies
+Valve signatures before installing its Win32 runtime. Re-run it with the server
+stopped to update that runtime. These DLLs are downloaded by the host, not bundled
+in cod4-live's installer. All human players must pass direct-ownership verification
+and controller enforcement. This project does not
 claim VAC integration.
 
 ## Distribution
@@ -47,5 +60,6 @@ claim VAC integration.
 The installer contains project binaries and redistributable dependencies, not
 retail maps, textures, fastfiles, audio, or original executables. The player's
 installation supplies Bink runtime files; audio uses the existing KisakCOD OpenAL backend. Distribute the matching
-`cod4-live-source.zip` alongside every installer to provide corresponding source.
+`cod4-live-source.zip` and `OpenAL-Soft-source.zip` alongside every installer to
+provide corresponding source, including the statically linked audio library.
 Private GitHub backup alone does not provide source access to binary recipients.

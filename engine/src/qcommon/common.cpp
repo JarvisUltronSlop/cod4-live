@@ -1027,7 +1027,10 @@ void __cdecl Com_SetScriptSettings()
 void __cdecl Com_RunAutoExec(int localClientNum, int controllerIndex)
 {
     Dvar_SetInAutoExec(1);
-#ifdef KISAK_MP
+#if defined(COD4LIVE)
+    // Retail payloads can contain developer presets. Never run those as player
+    // defaults; explicit +exec/config commands still use the normal command gate.
+#elif defined(KISAK_MP)
     Cmd_ExecuteSingleCommand(localClientNum, controllerIndex, (char*)"exec autoexec_dev_mp.cfg");
 #elif KISAK_SP
     Cmd_ExecuteSingleCommand(localClientNum, controllerIndex, (char*)"exec autoexec_dev.cfg");

@@ -1269,7 +1269,13 @@ void FS_RegisterDvars()
     fs_copyfiles = Dvar_RegisterBool("fs_copyfiles", 0, DVAR_INIT, "Copy all used files to another location");
     v1 = (char *)Sys_DefaultCDPath();
     fs_cdpath = Dvar_RegisterString("fs_cdpath", v1, DVAR_INIT, "CD path");
+#ifdef COD4LIVE
+    // Shortcuts, Steam and shells may supply a different working directory.
+    // Keep standalone assets and the default writable home beside this EXE.
+    v2 = Sys_DefaultInstallPath();
+#else
     v2 = Sys_Cwd();
+#endif
 #ifdef KISAK_RADIANT
     // The shipping editor lives in <install>\bin\ (the dev build in <install>\bin\Debug\),
     // with the game data (raw\, main\, ...) at <install>\.  Derive fs_basepath from the EXE
@@ -1965,8 +1971,14 @@ void __cdecl FS_Startup(char *gameName)
         FS_AddLocalizedGameDirectory((char *)fs_basepath->current.integer, (char*)"devraw");
         FS_AddLocalizedGameDirectory((char *)fs_basepath->current.integer, (char*)"raw_shared");
         FS_AddLocalizedGameDirectory((char *)fs_basepath->current.integer, (char*)"raw");
+#ifndef COD4LIVE
         FS_AddLocalizedGameDirectory((char *)fs_basepath->current.integer, (char*)"players");
+#endif
     }
+#ifdef COD4LIVE
+    // A separate asset base must not import the original game's profiles.
+    FS_AddLocalizedGameDirectory((char*)fs_homepath->current.string, (char*)"players");
+#endif
     if (*(_BYTE *)fs_homepath->current.integer && I_stricmp(fs_basepath->current.string, fs_homepath->current.string))
     {
         FS_AddLocalizedGameDirectory((char *)fs_homepath->current.integer, (char*)"devraw_shared");

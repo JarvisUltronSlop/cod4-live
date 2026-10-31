@@ -3591,7 +3591,11 @@ char __cdecl R_CreateWindow(GfxWindowParms *wndParms)
     wndParms->hwnd = CreateWindowExA(
         exStyle,
         "CoD4",
+#ifdef COD4LIVE
+        "cod4-live",
+#else
         "Call of Duty 4",
+#endif
         style,
         wndParms->x,
         wndParms->y,

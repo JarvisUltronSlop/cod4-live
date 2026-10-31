@@ -422,9 +422,9 @@ usercmd_s *__cdecl CL_CreateCmd(usercmd_s *result, int localClientNum)
         cmd.meleeChargeDist = 0;
     }
 #endif
-    #ifdef COD4_LIVE_CONTROLLER
+#ifdef COD4_LIVE_CONTROLLER
     live::controller::EndCommand();
-    #endif
+#endif
     memcpy(result, &cmd, sizeof(usercmd_s));
     return result;
 }

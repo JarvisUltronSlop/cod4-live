@@ -18,7 +18,7 @@ set(KISAK_PLATFORM win32)
 set(USE_ASAN OFF)
 
 # Set to ON to build the sound system against OpenAL instead of Miles/MSS.
-# When OFF (default), the original Miles Sound System (MSS/AIL) backend is used.
+# When OFF, the original Miles Sound System (MSS/AIL) backend is used.
 option(KISAK_OPENAL "Use the native OpenAL backend instead of incompatible retail Miles imports" ON)
 
 # Set the gloabl directory variables

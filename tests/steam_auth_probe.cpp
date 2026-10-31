@@ -30,7 +30,8 @@ static void pump(unsigned timeout, bool& done) {
     }
 }
 int main(int argc, char** argv) {
-    const bool headless = argc > 1 && !strcmp(argv[1], "--server-only");
+    const bool loopback = argc > 1 && !strcmp(argv[1], "--server-loopback");
+    const bool headless = loopback || (argc > 1 && !strcmp(argv[1], "--server-only"));
     SetEnvironmentVariableA("SteamAppId", "7940");
     SteamErrMsg error{};
     if (!headless && SteamAPI_InitEx(&error) != k_ESteamAPIInitResult_OK) {
@@ -42,9 +43,12 @@ int main(int argc, char** argv) {
         std::printf("local_direct_owner=%d appid=%u\n", owner, SteamUtils()->GetAppID());
         if (!owner) { SteamAPI_Shutdown(); return 3; }
     }
-    if (SteamGameServer_InitEx(0, 28990, 28991, eServerModeAuthentication, "0.1.0.0", &error) != k_ESteamAPIInitResult_OK) {
+    if (SteamGameServer_InitEx(loopback ? 0x7f000001u : 0, 28990, 28991, eServerModeAuthentication, "0.1.0.0", &error) != k_ESteamAPIInitResult_OK) {
         std::printf("server_init=failed error=%s\n", error); if (!headless) SteamAPI_Shutdown(); return 4;
     }
+    char runtime_path[MAX_PATH]{};
+    if (GetModuleFileNameA(GetModuleHandleA("steamclient.dll"), runtime_path, sizeof(runtime_path)))
+        std::printf("server_runtime=%s\n", runtime_path);
     int outcome = 0;
     {
         Probe probe;

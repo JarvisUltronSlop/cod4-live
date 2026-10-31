@@ -374,7 +374,7 @@ void __cdecl CG_RegisterDvars()
     cg_drawHealth = Dvar_RegisterBool("cg_drawHealth", 0, DVAR_CHEAT, "Draw health bar");
     cg_drawBreathHint = Dvar_RegisterBool("cg_drawBreathHint", 1, DVAR_ARCHIVE, "Draw a 'hold breath to steady' hint");
     cg_drawMantleHint = Dvar_RegisterBool("cg_drawMantleHint", 1, DVAR_ARCHIVE, "Draw a 'press key to mantle' hint");
-    cg_drawFPS = Dvar_RegisterEnum("cg_drawFPS", cg_drawFpsNames, 1, DVAR_ARCHIVE, "Draw frames per second");
+    cg_drawFPS = Dvar_RegisterEnum("cg_drawFPS", cg_drawFpsNames, 0, DVAR_ARCHIVE, "Draw frames per second");
     cg_drawFPSLabels = Dvar_RegisterBool("cg_drawFPSLabels", 1, DVAR_ARCHIVE, "Draw FPS Info Labels");
     minc.value.max = 640.0f;
     minc.value.min = -200.0f;

@@ -31,12 +31,26 @@ foreach ($name in @('cod4-live.exe','cod4-live_server.exe','steam_api.dll','D3DX
 }
 Add-PayloadFile (Join-Path $projectRoot 'LICENSE') 'notices/LICENSE.txt'
 Add-PayloadFile (Join-Path $projectRoot 'upstream-lock.json') 'notices/upstream-lock.json'
+Add-PayloadFile (Join-Path $projectRoot 'scripts/install-server-runtime.ps1') 'install-server-runtime.ps1'
 if (Test-Path -LiteralPath (Join-Path $projectRoot 'docs/INSTALLER.md')) { Add-PayloadFile (Join-Path $projectRoot 'docs/INSTALLER.md') 'INSTALLER.txt' }
+foreach ($guide in @('CONTROLLER','NETWORK','STEAM_AUTH','VALIDATION')) {
+    Add-PayloadFile (Join-Path $projectRoot "docs/$guide.md") "docs/$guide.txt"
+}
 if (Test-Path -LiteralPath (Join-Path $projectRoot 'docs/THIRD-PARTY.md')) { Add-PayloadFile (Join-Path $projectRoot 'docs/THIRD-PARTY.md') 'notices/THIRD-PARTY.txt' }
-if (Test-Path -LiteralPath (Join-Path $projectRoot '.cache/dxsdk/LICENSE.txt')) { Add-PayloadFile (Join-Path $projectRoot '.cache/dxsdk/LICENSE.txt') 'notices/Microsoft-D3DX-LICENSE.txt' }
+foreach ($notice in @('LICENSE.txt', 'NOTICE.md')) {
+    $source = Join-Path $projectRoot ('.cache/dxsdk/' + $notice)
+    if (!$TestPayload -or (Test-Path -LiteralPath $source)) {
+        Add-PayloadFile $source ('notices/Microsoft-D3DX-' + $notice)
+    }
+}
 if (!$TestPayload) {
     Add-PayloadFile (Join-Path $projectRoot 'build/_deps/openal-src/COPYING') 'notices/OpenAL-COPYING.txt'
     Add-PayloadFile (Join-Path $projectRoot 'build/_deps/openal-src/LICENSE-pffft') 'notices/OpenAL-pffft-LICENSE.txt'
+    $revision = (& git -C $projectRoot rev-parse HEAD).Trim()
+    if ($LASTEXITCODE) { throw 'Cannot identify source revision' }
+    $releaseInfo = [ordered]@{ project='cod4-live'; protocol=10003; sourceRevision=$revision; configuration=$Configuration; packagedUtc=[DateTime]::UtcNow.ToString('o') }
+    $releaseInfo | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $stage 'build.json') -Encoding utf8
+    Add-PayloadFile (Join-Path $stage 'build.json') 'notices/build.json'
 }
 $manifest = ($entries | ForEach-Object { "$($_.file)`t$($_.sha256)`t$($_.relative)" }) -join "`n"
 [IO.File]::WriteAllText((Join-Path $stage 'manifest.tsv'), $manifest + "`n", [Text.UTF8Encoding]::new($false))
@@ -62,5 +76,6 @@ if (!$TestPayload) {
     & git -C (Join-Path $projectRoot 'build/_deps/openal-src') archive --format=zip ('--output='+ (Join-Path $outputRoot 'OpenAL-Soft-source.zip')) HEAD
     if ($LASTEXITCODE) { throw 'OpenAL corresponding source archive failed' }
     $entries | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $outputRoot 'payload-manifest.json') -Encoding utf8
+    $releaseInfo | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $outputRoot 'build.json') -Encoding utf8
 }
 Write-Output $(if ($TestPayload) { 'Installer fixture tests passed; no playable installer produced.' } else { Join-Path $outputRoot 'cod4-live_setup.exe' })

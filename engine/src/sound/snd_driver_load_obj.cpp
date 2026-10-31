@@ -18,7 +18,11 @@
 #endif
 
 #ifdef KISAK_DEDICATED
+#ifdef KISAK_OPENAL
+LoadedSound* __cdecl SND_LoadFromBuffer(void* buffer, uint32_t bufferSize, const char* soundName)
+#else
 LoadedSound* __cdecl SND_LoadFromBuffer(void* buffer, const char* soundName)
+#endif
 {
     return NULL;
 }

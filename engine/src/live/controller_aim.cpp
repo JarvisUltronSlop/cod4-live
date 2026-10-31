@@ -2,6 +2,7 @@
 // Target discovery, weapon data, FOV and melee stay in CoD4's own pipeline.
 #include "iw4x/Aim/Assist.hpp"
 #include "controller.h"
+#include "controller_policy.h"
 #include <universal/q_shared.h>
 #include <aim_assist/aim_assist.h>
 #include <bgame/bg_local.h>
@@ -84,12 +85,13 @@ void UpdateAim(const AimInput& input, AimOutput& output)
         AimAssist_UpdateTweakables(&input);
         AimAssist_UpdateAdsLerp(&input);
     }
-    const bool offhand = ps.weaponstate >= WEAPON_OFFHAND_INIT && ps.weaponstate <= WEAPON_OFFHAND_END;
     const unsigned weapon = aa.initialized ? AimAssist_GetWeaponIndex(input.localClientNum, input.ps) : 0;
     const auto* definition = weapon ? BG_GetWeaponDef(weapon) : nullptr;
+    static_assert(PWF_USING_OFFHAND == UsingOffhandFlag);
+    const bool offhand = UsingOffhand(ps.weapFlags, definition && definition->offhandClass != OFFHAND_CLASS_NONE);
     const bool allowed = aa.initialized && AimTarget_PlayerInValidState(&ps) &&
         !(ps.pm_flags & PMF_FROZEN) && !(ps.eFlags & 0x300) && definition &&
-        definition->weapClass != WEAPCLASS_ROCKETLAUNCHER && BG_WeaponAmmo(&ps, weapon) > 0;
+        WeaponAllowsAssist(definition->requireLockonToFire != 0, BG_WeaponAmmo(&ps, weapon));
     const float range = definition ? std::lerp(definition->aimAssistRange,
         definition->aimAssistRangeAds, std::clamp(aa.adsLerp, 0.0f, 1.0f)) : 0.0f;
 

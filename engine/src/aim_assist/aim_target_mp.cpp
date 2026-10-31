@@ -1,5 +1,8 @@
 #include <universal/q_shared.h>
 #include "aim_assist.h"
+#ifdef COD4LIVE
+#include <live/aim_tuning.h>
+#endif
 #include <qcommon/mem_track.h>
 #include <qcommon/cmd.h>
 #include <bgame/bg_local.h>
@@ -21,7 +24,9 @@ void __cdecl AimTarget_Init(int32_t localClientNum)
 {
     memset((uint8_t*)&atGlobArray[localClientNum], 0, sizeof(AimTargetGlob));
     AimTarget_RegisterDvars();
+#ifndef COD4LIVE
     Cbuf_InsertText(0, "exec devgui_aimassist\n");
+#endif
 }
 
 const dvar_s *AimTarget_RegisterDvars()
@@ -45,6 +50,9 @@ const dvar_s *AimTarget_RegisterDvars()
         min,
         DVAR_CHEAT | DVAR_USERINFO,
         "The radius used to calculate target bounds for a sentient(actor or player)");
+#endif
+#ifdef COD4LIVE
+    live::LockAimTuning(result);
 #endif
     aim_target_sentient_radius = result;
     return result;

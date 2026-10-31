@@ -9,7 +9,7 @@ state = re.search(r"struct LiveInputState\n\{.*?LiveInputState liveInputStates\[
 if not state:
     raise SystemExit("Production input state declaration changed; update extraction")
 parts = [state.group(0)]
-for name in ["SV_ApplyControllerPolicy", "SV_ClientEnterWorld", "SV_ClientThink"]:
+for name in ["SV_ApplyControllerPolicy", "SV_ClientEnterWorld", "SV_ClientThink", "SV_TryControllerAdmission"]:
     match = re.search(rf"^[^\n]*\b{name}\([^\n]*\)\n\{{.*?^\}}", source, re.M | re.S)
     if not match:
         raise SystemExit(f"Production function {name} changed; update extraction")

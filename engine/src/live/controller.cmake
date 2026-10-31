@@ -21,6 +21,14 @@ target_sources(KisakCOD-mp PRIVATE ${LIVE_CONTROLLER_VENDOR}
 target_compile_definitions(KisakCOD-mp PRIVATE COD4_LIVE_CONTROLLER=1 NOMINMAX)
 target_link_libraries(KisakCOD-mp PRIVATE hid setupapi cfgmgr32 ole32 avrt)
 
+# Explicit developer target, excluded from normal builds and installer payloads.
+add_executable(controller-probe EXCLUDE_FROM_ALL
+    "${LIVE_CONTROLLER_DIR}/../../../tests/controller_probe.cpp"
+    ${LIVE_CONTROLLER_VENDOR})
+target_compile_features(controller-probe PRIVATE cxx_std_20)
+target_include_directories(controller-probe PRIVATE "${LIVE_CONTROLLER_DIR}/..")
+target_link_libraries(controller-probe PRIVATE hid setupapi cfgmgr32 ole32 avrt)
+
 if(BUILD_TESTING)
     add_executable(controller-math-tests
         "${LIVE_CONTROLLER_DIR}/../../../tests/controller_math.cpp"

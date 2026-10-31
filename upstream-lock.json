@@ -1,0 +1,5 @@
+{
+  "kisakcod": {"repository": "https://github.com/SwagSoftware/KisakCOD", "revision": "8aadf94cc82795d6829ca06052996a5ec79001c3"},
+  "iw4x": {"repository": "https://github.com/iw4x/iw4x-client", "revision": "47c44fc0ce6f05172f34cc88c294121615df12e4"},
+  "installer": {"repository": "https://github.com/JarvisUltronSlop/cod4x1khz", "revision": "59b5d59fefc6b89e251da5bdd1ccdc11dbf00098"}
+}

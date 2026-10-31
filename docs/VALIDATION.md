@@ -7,11 +7,14 @@ remaining acceptance cases below are not claimed as passed.
 ## Build and automated checks
 
 - Full multiplayer client and dedicated server compile and link successfully.
-- Five engine CTest suites pass: controller-math, input_policy, usercmd_codec,
-  server_input, and steam_auth. The separate installer suite also passes.
+- Seven engine CTest suites pass: controller-math, input_policy, bot_policy,
+  controller_assets, usercmd_codec, server_input, and steam_auth. The separate
+  installer suite also passes.
 - Controller tests exercise the vendored IW4x calculations, radial deadzones,
   stick layouts, inversion, slowdown, relative-motion rotation, short-tap
-  retention, command-source filtering, and controller menu-focus preservation.
+  retention, command-source filtering, controller menu-focus preservation, all
+  eight button profiles, inline glyph parsing, and unfocused device presence
+  through the server's 30-second disconnect grace.
   Constant-turn integration is checked at 30/60/144/250/1000 Hz with acceleration
   disabled; this does not validate every accelerated aiming trace.
 - Protocol tests compile production serialization code, cover all signed-byte
@@ -21,6 +24,9 @@ remaining acceptance cases below are not claimed as passed.
   timestamps, replay/restart behavior, bot exemptions and ownership rejection.
 - Installer tests cover separate destinations, payload hashes, cancellation,
   repair, rollback, user configuration preservation and unowned-file protection.
+- The asset check verifies pinned IW4x source hashes and the lossless IWI8-to-IWI6
+  conversion of 45 valid controller images. Eight malformed, unused upstream
+  `*_big` images are retained as vendor source but excluded from runtime content.
 
 ## Live evidence
 
@@ -45,12 +51,31 @@ remaining acceptance cases below are not claimed as passed.
   overwriting controller focus; that path is fixed and has a regression test.
 - After the fix, the user confirmed that DualSense menu selection and gameplay
   both work, including spawning and stick movement/look.
+- The expanded native Controller pages passed command-driven debugger startup,
+  renderer restart, and listen-server map/disconnect/reload checks without fatal
+  exceptions, missing-glyph warnings, or native focus-script errors. The physical
+  confirmation above predates these pages and image glyphs; their visual layout
+  and full controller navigation still require acceptance.
+- Bot Warfare loaded its packaged scripts and Crash waypoints. Live checks
+  verified movement, weapons, difficulty changes, count reduction/removal and
+  re-addition, fast restart and full map reload. A 32-slot server sustained 31
+  bots with combat scores and responsive status requests. The 64-slot/63-bot
+  stress test exposed the original script-variable ceiling and is being
+  validated separately after the bounded VM capacity change.
+- A real compiled installer payload completed clean installation and repair
+  using the owned Steam assets. Client/runtime hashes were restored, profiles
+  and server configuration survived, and all 343 source paths, sizes and
+  modification times remained unchanged. The installed dedicated executable
+  loaded Crash and connected to Steam when launched outside its directory.
 - Valve's dedicated runtime helper downloaded app 1007 directly from Valve,
   checked its signatures and x86 DLLs, and passed anonymous server API login
   while loading the downloaded local steamclient.dll.
 
 ## Acceptance still required
 
+- Visually inspect the new native Controller and Bot Warfare pages and complete
+  their selection flow with the DualSense. Computer Use was paused by Escape;
+  a later retrigger still reported native-app access paused.
 - Broaden physical checks to short taps, held actions, scoreboard, all class/team
   menus, location selection, hotplug and physical vibration.
 - Xbox/XInput hardware, PlayStation Bluetooth, and Steam Input virtual-gamepad

@@ -8,5 +8,6 @@ $engine = if ($CoreOnly) { 'OFF' } else { 'ON' }
 if ($LASTEXITCODE) { throw 'CMake configuration failed' }
 & cmake --build $buildRoot --config $Configuration --parallel 8
 if ($LASTEXITCODE) { throw 'Build failed' }
+if (!$CoreOnly) { & (Join-Path $projectRoot 'scripts/stage-content.ps1') }
 & ctest --test-dir $buildRoot -C $Configuration --output-on-failure
 if ($LASTEXITCODE) { throw 'Tests failed' }

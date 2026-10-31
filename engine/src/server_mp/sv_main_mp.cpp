@@ -4,6 +4,7 @@
 
 #include <universal/q_shared.h>
 #include "server_mp.h"
+#include <live/bot_warfare.h>
 
 #include <qcommon/qcommon.h>
 #include <qcommon/mem_track.h>
@@ -831,6 +832,11 @@ void __cdecl SV_CalcPings()
     for (i = 0; i < sv_maxclients->current.integer; ++i)
     {
         v1 = &svs.clients[i];
+        if (v1->header.netchan.remoteAddress.type == NA_BOT)
+        {
+            v1->ping = 0;
+            continue;
+        }
         if (v1->header.state == CS_ACTIVE)
         {
             if (v1->gentity)
@@ -1048,55 +1054,7 @@ void __cdecl SV_UpdatePerformanceFrame(float time)
 
 void __cdecl SV_BotUserMove(client_t *cl)
 {
-    playerState_s *v1; // esi
-    usercmd_s nullcmd; // [esp+4h] [ebp-24h] BYREF
-
-    if (cl->gentity)
-    {
-        memset(&nullcmd, 0, sizeof(nullcmd));
-        v1 = SV_GameClientNum(cl - svs.clients);
-        if (v1->weapon != LOBYTE(SV_GameClientNum(cl - svs.clients)->weapon))
-            MyAssertHandler(
-                ".\\server_mp\\sv_main_mp.cpp",
-                1876,
-                0,
-                "%s",
-                "SV_GameClientNum( cl - svs.clients )->weapon == static_cast<byte>( SV_GameClientNum( cl - svs.clients )->weapon )");
-        nullcmd.weapon = SV_GameClientNum(cl - svs.clients)->weapon;
-        if (!G_GetClientArchiveTime(cl - svs.clients))
-        {
-            if (random() < 0.5 && sv_botsPressAttackBtn->current.enabled)
-                nullcmd.buttons |= BUTTON_ATTACK;
-            if (random() < 0.5)
-                nullcmd.buttons |= BUTTON_USE | BUTTON_USE_RELOAD;
-            if (random() >= 0.3300000131130219)
-            {
-                if (random() < 0.5)
-                    nullcmd.forwardmove = -127;
-            }
-            else
-            {
-                nullcmd.forwardmove = 127;
-            }
-            if (random() >= 0.3300000131130219)
-            {
-                if (random() < 0.5)
-                    nullcmd.rightmove = -127;
-            }
-            else
-            {
-                nullcmd.rightmove = 127;
-            }
-            if (random() < 0.3300000131130219)
-                nullcmd.angles[0] = (int)(crandom() * 360.0);
-            if (random() < 0.3300000131130219)
-                nullcmd.angles[1] = (int)(crandom() * 360.0);
-            if (random() < 0.3300000131130219)
-                nullcmd.angles[2] = (int)(crandom() * 360.0);
-        }
-        cl->header.deltaMessage = cl->header.netchan.outgoingSequence - 1;
-        SV_ClientThink(cl, &nullcmd);
-    }
+    live::bots::UserMove(cl);
 }
 
 void __cdecl SV_UpdateBots()
@@ -1105,6 +1063,7 @@ void __cdecl SV_UpdateBots()
     int i; // [esp+34h] [ebp-4h]
 
     PROF_SCOPED("SV_UpdateBots");
+    live::bots::Frame();
     SV_ResetSkeletonCache();
     i = 0;
     clients = svs.clients;

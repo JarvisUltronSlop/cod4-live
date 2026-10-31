@@ -2912,7 +2912,7 @@ void EmitObject(sval_u expr, sval_u sourcePos)
 		idValue = atoi(s + 1);
 		if (idValue)
 		{
-			if (idValue < 0x8000 && !IsObjectFree(idValue))
+			if (idValue < VARIABLELIST_PARENT_SIZE && !IsObjectFree(idValue))
 			{
 				ObjectType = GetObjectType(idValue);
 				if (ObjectType >= 14 && (ObjectType <= 17 || ObjectType == 22))

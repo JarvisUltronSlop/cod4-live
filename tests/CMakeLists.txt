@@ -23,7 +23,26 @@ add_executable(input_policy_tests ${CMAKE_CURRENT_LIST_DIR}/input_policy_tests.c
 target_compile_features(input_policy_tests PRIVATE cxx_std_20)
 target_include_directories(input_policy_tests PRIVATE ${CMAKE_CURRENT_LIST_DIR}/../engine/src)
 add_test(NAME input_policy COMMAND input_policy_tests)
+add_executable(bot_policy_tests ${CMAKE_CURRENT_LIST_DIR}/bot_policy_tests.cpp)
+target_compile_features(bot_policy_tests PRIVATE cxx_std_20)
+target_include_directories(bot_policy_tests PRIVATE ${CMAKE_CURRENT_LIST_DIR}/../engine/src)
+target_compile_options(bot_policy_tests PRIVATE $<$<CXX_COMPILER_ID:MSVC>:/UNDEBUG>)
+add_test(NAME bot_policy COMMAND bot_policy_tests)
 find_package(Python3 COMPONENTS Interpreter REQUIRED)
+set(script_variable_source "${CMAKE_CURRENT_BINARY_DIR}/generated_script_variables.inc")
+add_custom_command(OUTPUT "${script_variable_source}"
+    COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_LIST_DIR}/extract_script_variables.py"
+        "${CMAKE_CURRENT_LIST_DIR}/../engine/src/script/scr_variable.cpp" "${script_variable_source}"
+    DEPENDS "${CMAKE_CURRENT_LIST_DIR}/extract_script_variables.py"
+        "${CMAKE_CURRENT_LIST_DIR}/../engine/src/script/scr_variable.cpp"
+    VERBATIM)
+add_executable(script_variable_tests "${CMAKE_CURRENT_LIST_DIR}/script_variable_tests.cpp" "${script_variable_source}")
+target_compile_features(script_variable_tests PRIVATE cxx_std_20)
+target_compile_definitions(script_variable_tests PRIVATE KISAK_MP=1 WIN32 RELEASE_ASSERTS)
+target_include_directories(script_variable_tests PRIVATE "${CMAKE_CURRENT_LIST_DIR}/../engine/src" "${CMAKE_CURRENT_BINARY_DIR}")
+add_test(NAME script_variables COMMAND script_variable_tests)
+add_test(NAME controller_assets COMMAND "${Python3_EXECUTABLE}"
+    "${CMAKE_CURRENT_LIST_DIR}/../scripts/convert-controller-images.py" --check)
 set(codec_source "${CMAKE_CURRENT_BINARY_DIR}/generated_usercmd_codec.cpp")
 add_custom_command(OUTPUT "${codec_source}"
     COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_LIST_DIR}/extract_usercmd_codec.py"

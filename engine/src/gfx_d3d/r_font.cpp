@@ -1,5 +1,8 @@
 #include <universal/q_shared.h>
 #include "r_font.h"
+#ifdef COD4_LIVE_CONTROLLER
+#include <live/controller_glyph.h>
+#endif
 #include <stringed/stringed_hooks.h>
 #include <qcommon/mem_track.h>
 #include <universal/com_files.h>
@@ -200,6 +203,15 @@ int __cdecl R_TextWidth(const char *text, int maxChars, Font_s *font)
         {
             ++text;
         }
+#ifdef COD4_LIVE_CONTROLLER
+        else if (letter == 94 && live::controller_glyph::Named(text))
+        {
+            lineWidth += (font->pixelHeight * (text[1] - 16) + 16) / 32;
+            text += live::controller_glyph::Bytes(text);
+            maxWidth = std::max(maxWidth, lineWidth);
+            ++count;
+        }
+#endif
         else
         {
             lineWidth += R_GetCharacterGlyph(font, letter)->dx;
@@ -253,13 +265,21 @@ const char *__cdecl R_TextLineWrapPosition(
             {
                 ++parsePos;
             }
-            else if (letter == 94 && (*parsePos == 1 || *parsePos == 2))
+            else if (letter == 94 && (*parsePos == 1 || *parsePos == 2
+#ifdef COD4_LIVE_CONTROLLER
+                || live::controller_glyph::Named(parsePos)
+#endif
+                ))
             {
                 if (font)
                     pixelsUsed += (font->pixelHeight * (parsePos[1] - 16) + 16) / 32;
                 if (preLetterPos != text)
                     wrapPos = preLetterPos;
+#ifdef COD4_LIVE_CONTROLLER
+                parsePos += live::controller_glyph::Bytes(parsePos);
+#else
                 parsePos += 7;
+#endif
             }
             else
             {
@@ -313,10 +333,19 @@ int __cdecl R_ConsoleTextWidth(const char *textPool, int poolSize, int firstChar
         {
             parsePos = indexMask & (parsePos + 1);
         }
-        else if (letter == 94 && (textPool[parsePos] == 1 || textPool[parsePos] == 2))
+        else if (letter == 94 && (textPool[parsePos] == 1 || textPool[parsePos] == 2
+#ifdef COD4_LIVE_CONTROLLER
+            || textPool[parsePos] == 3
+#endif
+            ))
         {
             width += (font->pixelHeight * (textPool[indexMask & (parsePos + 1)] - 16) + 16) / 32;
+#ifdef COD4_LIVE_CONTROLLER
+            const int bytes = textPool[parsePos] == 3 ? 4 + static_cast<unsigned char>(textPool[indexMask & (parsePos + 3)]) : 7;
+            parsePos = indexMask & (parsePos + bytes);
+#else
             parsePos = indexMask & (parsePos + 7);
+#endif
         }
         else
         {

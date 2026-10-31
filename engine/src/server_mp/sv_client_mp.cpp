@@ -4,6 +4,7 @@
 
 #include <universal/q_shared.h>
 #include "server_mp.h"
+#include <live/bot_warfare.h>
 #include <qcommon/cmd.h>
 #include <universal/com_files.h>
 #include <universal/q_parse.h>
@@ -908,6 +909,16 @@ void __cdecl SV_DropClient(client_t *drop, const char *reason, bool tellThem)
             ;
         if (i == sv_maxclients->current.integer)
             SV_Heartbeat_f();
+        // Internal bots have no disconnect packet to acknowledge and are skipped
+        // by the network timeout path. Release their slot now so count changes
+        // can remove and subsequently re-add them.
+        if (drop->header.netchan.remoteAddress.type == NA_BOT)
+        {
+            live::bots::ResetClient(static_cast<int>(drop - svs.clients));
+            drop->header.state = CS_FREE;
+            drop->bIsTestClient = 0;
+            drop->lastPacketTime = 0;
+        }
     }
 }
 
@@ -1764,6 +1775,7 @@ void __cdecl SV_ExecuteClientCommand(client_t *cl, char *s, int clientOK, int fr
 
 gentity_s *__cdecl SV_AddTestClient()
 {
+    if (!live::bots::CanAdd()) return nullptr;
     netadr_t v1; // [esp-14h] [ebp-458h]
     client_t *client; // [esp+0h] [ebp-444h]
     client_t *clienta; // [esp+0h] [ebp-444h]
@@ -1808,6 +1820,7 @@ gentity_s *__cdecl SV_AddTestClient()
     if (i == sv_maxclients->current.integer)
         return 0;
     clienta->bIsTestClient = 1;
+    live::bots::ResetClient(i);
     SV_SendClientGameState(clienta);
     memset(&nullcmd, 0, sizeof(nullcmd));
     SV_ClientEnterWorld(clienta, &nullcmd);

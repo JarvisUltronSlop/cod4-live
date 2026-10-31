@@ -52,6 +52,16 @@ int wmain(int argc, wchar_t** argv) {
         }
         const auto originalClientHash = live::setup::HashFile(destination / "cod4-live.exe");
         const auto originalRuntimeHash = live::setup::HashFile(destination / "D3DX9_43.dll");
+        const std::array contentFiles{
+            destination / "main/maps/mp/bots/_bot.gsc",
+            destination / "main/maps/mp/bots/_cod4live.gsc",
+            destination / "main/images/live_controller/button_a.iwi",
+            destination / "main/images/live_controller/button_ps3_circle.iwi"};
+        std::array<std::string, std::tuple_size_v<decltype(contentFiles)>> contentHashes;
+        for (size_t i = 0; i < contentFiles.size(); ++i) {
+            contentHashes[i] = live::setup::HashFile(contentFiles[i]);
+            require(!contentHashes[i].empty(), "Controller/Bot Warfare payload missing");
+        }
         const auto profile = destination / "players/profiles/acceptance/config_mp.cfg";
         const auto server = destination / "main/server.cfg";
         const std::string profileText = "// acceptance profile preservation\nseta name acceptance\n";
@@ -59,14 +69,18 @@ int wmain(int argc, wchar_t** argv) {
         write(profile, profileText); write(server, serverText);
         write(destination / "cod4-live.exe", "acceptance repair fixture");
         fs::remove(destination / "D3DX9_43.dll");
+        write(contentFiles[0], "acceptance bot-script repair fixture");
+        fs::remove(contentFiles[2]);
         require(live::setup::Inspect(source, destination, plan, error) && plan.repair, error);
         require(live::setup::Install(plan, cancelled, progress, error), error);
         require(live::setup::HashFile(destination / "cod4-live.exe") == originalClientHash, "Client repair mismatch");
         require(live::setup::HashFile(destination / "D3DX9_43.dll") == originalRuntimeHash, "Runtime repair mismatch");
+        for (size_t i = 0; i < contentFiles.size(); ++i)
+            require(live::setup::HashFile(contentFiles[i]) == contentHashes[i], "Controller/Bot Warfare content repair mismatch");
         require(read(profile) == profileText && read(server) == serverText, "Repair changed user configuration");
         for (size_t i = 0; i < sourceFiles.size(); ++i)
             require(live::setup::HashFile(sourceFiles[i]) == sourceHashes[i], "Retail source changed");
-        std::cout << "PASS: real payload clean install, asset sizes, repair, profile/server preservation, retail source hashes\n";
+        std::cout << "PASS: real payload clean install, asset sizes, binary/content repair, profile/server preservation, retail source hashes\n";
         return 0;
     } catch (const std::exception& e) {
         std::cerr << "FAIL: " << e.what() << '\n';

@@ -653,7 +653,7 @@ void __cdecl VM_CancelNotify(uint32_t notifyListOwnerId, uint32_t startLocalId)
     uint32_t notifyListId; // [esp+4h] [ebp-8h]
     VariableValueInternal_u notifyNameListId; // [esp+8h] [ebp-4h]
 
-    Variable = FindVariable(notifyListOwnerId, 0x18000u);
+    Variable = FindVariable(notifyListOwnerId, OBJECT_NOTIFY_LIST);
     notifyListId = FindObject(Variable);
     ThreadNotifyName = Scr_GetThreadNotifyName(startLocalId);
     stringValue = ThreadNotifyName;
@@ -676,7 +676,7 @@ void __cdecl VM_CancelNotifyInternal(
 
     if (stringValue != Scr_GetThreadNotifyName(startLocalId))
         MyAssertHandler(".\\script\\scr_vm.cpp", 2724, 0, "%s", "stringValue == Scr_GetThreadNotifyName( startLocalId )");
-    Variable = FindVariable(notifyListOwnerId, 0x18000u);
+    Variable = FindVariable(notifyListOwnerId, OBJECT_NOTIFY_LIST);
     if (notifyListId != FindObject(Variable))
         MyAssertHandler(
             ".\\script\\scr_vm.cpp",
@@ -698,7 +698,7 @@ void __cdecl VM_CancelNotifyInternal(
     {
         RemoveVariable(notifyListId, stringValue);
         if (!GetArraySize(notifyListId))
-            RemoveVariable(notifyListOwnerId, 0x18000u);
+            RemoveVariable(notifyListOwnerId, OBJECT_NOTIFY_LIST);
     }
 }
 
@@ -740,13 +740,13 @@ uint32_t __cdecl Scr_GetWaittillThreadStackId(uint32_t localId, uint32_t startLo
     ThreadNotifyName = Scr_GetThreadNotifyName(startLocalId);
     stringValue = ThreadNotifyName;
     if (!ThreadNotifyName)
-        return FindVariable(startLocalId, 0x18001u);
+        return FindVariable(startLocalId, OBJECT_STACK);
     selfId = Scr_GetSelf(startLocalId);
     ObjectVariable = FindObjectVariable(scrVarPub.pauseArrayId, selfId);
     Object = FindObject(ObjectVariable);
     v5 = FindObjectVariable(Object.u.stringValue, startLocalId);
     VariableValueAddress = GetVariableValueAddress(v5);
-    Variable = FindVariable(VariableValueAddress->u.intValue, 0x18000u);
+    Variable = FindVariable(VariableValueAddress->u.intValue, OBJECT_NOTIFY_LIST);
     notifyListId = FindObject(Variable);
     v8 = FindVariable(notifyListId.u.stringValue, stringValue);
     v9 = FindObject(v8);
@@ -979,7 +979,7 @@ void __cdecl VM_Notify(uint32_t notifyListOwnerId, uint32_t stringValue, Variabl
     uint32_t selfId; // [esp+58h] [ebp-8h]
     uint32_t notifyListEntry; // [esp+5Ch] [ebp-4h]
 
-    notifyListId = FindVariable(notifyListOwnerId, 0x18000u);
+    notifyListId = FindVariable(notifyListOwnerId, OBJECT_NOTIFY_LIST);
     if (notifyListId)
     {
         notifyListId = FindObject(notifyListId);
@@ -1341,7 +1341,7 @@ void __cdecl Scr_TerminateWaittillThread(uint32_t localId, uint32_t startLocalId
         selfNameId = FindObject(ObjectVariable);
         v4 = FindObjectVariable(selfNameId, startLocalId);
         notifyListOwnerId.intValue = GetVariableValueAddress(v4)->u.intValue;
-        Variable = FindVariable(notifyListOwnerId.stringValue, 0x18000u);
+        Variable = FindVariable(notifyListOwnerId.stringValue, OBJECT_NOTIFY_LIST);
         notifyListId = FindObject(Variable);
         v6 = FindVariable(notifyListId, stringValue);
         notifyNameListId = FindObject(v6);
@@ -1360,7 +1360,7 @@ void __cdecl Scr_TerminateWaittillThread(uint32_t localId, uint32_t startLocalId
     }
     else
     {
-        stackIda = FindVariable(startLocalId, 0x18001u);
+        stackIda = FindVariable(startLocalId, OBJECT_STACK);
         if (!stackIda)
             MyAssertHandler(".\\script\\scr_vm.cpp", 3293, 0, "%s", "stackId");
         if (GetValueType(stackIda) != VAR_STACK)
@@ -1368,7 +1368,7 @@ void __cdecl Scr_TerminateWaittillThread(uint32_t localId, uint32_t startLocalId
         stackValue = (VariableStackBuffer*)GetVariableValueAddress(stackIda)->u.intValue;
         if (scrVarPub.developer)
             Scr_GetStackThreadPos(localId, stackValue, 1);
-        RemoveVariable(startLocalId, 0x18001u);
+        RemoveVariable(startLocalId, OBJECT_STACK);
     }
     VM_TerminateStack(localId, startLocalId, stackValue);
 }
@@ -1386,7 +1386,7 @@ void __cdecl Scr_CancelNotifyList(uint32_t notifyListOwnerId)
 
     while (1)
     {
-        notifyListId = FindVariable(notifyListOwnerId, 0x18000u);
+        notifyListId = FindVariable(notifyListOwnerId, OBJECT_NOTIFY_LIST);
         if (!notifyListId)
             break;
         notifyListId = FindObject(notifyListId);
@@ -1413,7 +1413,7 @@ void __cdecl Scr_CancelNotifyList(uint32_t notifyListOwnerId)
             Scr_CancelWaittill(startLocalId);
             selfLocalId = Scr_GetSelf(startLocalId);
             selfStartLocalId = GetStartLocalId(selfLocalId);
-            stackId = FindVariable(selfStartLocalId, 0x18001u);
+            stackId = FindVariable(selfStartLocalId, OBJECT_STACK);
             if (stackId)
             {
                 iassert(!Scr_GetThreadNotifyName(selfStartLocalId));
@@ -1465,7 +1465,7 @@ void __cdecl VM_TrimStack(uint32_t startLocalId, VariableStackBuffer* stackValue
                     stackValue->pos = 0;
                     tempValue.type = VAR_STACK;
                     tempValue.u.intValue = (int)stackValue;
-                    NewVariable = GetNewVariable(startLocalId, 0x18001u);
+                    NewVariable = GetNewVariable(startLocalId, OBJECT_STACK);
                     SetNewVariableValue(NewVariable, &tempValue);
                 }
                 return;
@@ -1482,7 +1482,7 @@ void __cdecl VM_TrimStack(uint32_t startLocalId, VariableStackBuffer* stackValue
     }
     iassert(startLocalId == localId);
     if (fromEndon)
-        RemoveVariable(startLocalId, 0x18001u);
+        RemoveVariable(startLocalId, OBJECT_STACK);
     Scr_KillThread(startLocalId);
     RemoveRefToObject(startLocalId);
     --scrVarPub.numScriptThreads;
@@ -2529,7 +2529,8 @@ SafeSetVariableFieldCached0:
             iassert(fs.top->type != VAR_CODEPOS);
             if (fs.top->type == VAR_PRECODEPOS)
             {
-                if (scrVarPub.numScriptValues > 0xF37E || scrVarPub.numScriptObjects > 0x7380)
+                if (scrVarPub.numScriptValues > VARIABLELIST_CHILD_SIZE - SCRIPT_VARIABLE_EMERGENCY_RESERVE ||
+                    scrVarPub.numScriptObjects > VARIABLELIST_PARENT_SIZE - SCRIPT_VARIABLE_EMERGENCY_RESERVE)
                 {
                     if (scrVmPub.showError)
                     {
@@ -3023,7 +3024,8 @@ function_call:
 
 #define INFINITE_LOOP_TIMEOUT 5000
         case OP_jumpback:
-            if (scrVarPub.numScriptValues > 0xF37E || scrVarPub.numScriptObjects > 0x7380)
+            if (scrVarPub.numScriptValues > VARIABLELIST_CHILD_SIZE - SCRIPT_VARIABLE_EMERGENCY_RESERVE ||
+                    scrVarPub.numScriptObjects > VARIABLELIST_PARENT_SIZE - SCRIPT_VARIABLE_EMERGENCY_RESERVE)
             {
                 if (scrVmPub.showError)
                 {
@@ -3248,7 +3250,7 @@ function_call:
                 stackValue.type = VAR_STACK;
                 //stackValue.u.stackValue = VM_ArchiveStack2(top - startTop, pos, top, localVarCount, &localId);
                 stackValue.u.stackValue = VM_ArchiveStack();
-                id = GetArray(GetVariable(GetArray(GetVariable(tempValue.u.stringValue, 0x18000)), stringValue));
+                id = GetArray(GetVariable(GetArray(GetVariable(tempValue.u.stringValue, OBJECT_NOTIFY_LIST)), stringValue));
                 stackId = GetNewObjectVariable(id, fs.localId);
                 SetNewVariableValue(stackId, &stackValue);
                 tempValue.type = VAR_POINTER;
@@ -3319,7 +3321,7 @@ function_call:
                 iassert(GetObjectType(fs.top->u.pointerValue) != VAR_TIME_THREAD);
                 iassert(GetObjectType(fs.top->u.pointerValue) != VAR_CHILD_THREAD);
                 iassert(GetObjectType(fs.top->u.pointerValue) != VAR_DEAD_THREAD);
-                GetObjectVariable(GetArray(GetVariable(GetArray(GetVariable(fs.top->u.stringValue, 0x18000)), stringValue)), threadId);
+                GetObjectVariable(GetArray(GetVariable(GetArray(GetVariable(fs.top->u.stringValue, OBJECT_NOTIFY_LIST)), stringValue)), threadId);
                 RemoveRefToObject(threadId);
                 tempValue.type = VAR_POINTER;
                 tempValue.u = fs.top->u;

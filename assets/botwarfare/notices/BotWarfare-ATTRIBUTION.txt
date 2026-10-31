@@ -1,0 +1,11 @@
+IW3 Bot Warfare by INeedGames / INeedBots
+https://github.com/ineedbots/iw3_bot_warfare
+Pinned revision: 901895a10dee921142cf4228c467f99013b5b6c4
+
+Credits retained from upstream: CoD4x Team, INeedGames, PeZBot team, Ability,
+Salvation. The upstream author's reuse/modification permission and complete
+credits are included in BotWarfare-UPSTREAM-README.md.
+
+cod4-live additions: classic KisakCOD native engine adapter and _cod4live.gsc;
+native host menu integration; player-slot reservation; read-only data interface.
+The original Bot Warfare GSC and selected retail-map waypoint files are preserved.

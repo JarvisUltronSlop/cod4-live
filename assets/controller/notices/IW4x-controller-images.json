@@ -1,0 +1,893 @@
+{
+  "repository": "https://github.com/iw4x/iw4x-rawfiles",
+  "revision": "5009e6d54dab90f6196a8518b9a4d084bed73e2b",
+  "files": [
+    {
+      "path": "iw4x/iw4x_00/images/button_a.iwi",
+      "sha256": "2363eeb206e30372bba1d90cdebb7c787eb41e55a5d6100ecae4d3eafca25bfa",
+      "bytes": 1056
+    },
+    {
+      "path": "iw4x/iw4x_00/images/button_a_big.iwi",
+      "sha256": "7bf0ffe5086efd7f04fba170e0ddde462d98e1ae4f599df17332770931371c7a",
+      "bytes": 1632
+    },
+    {
+      "path": "iw4x/iw4x_00/images/button_b.iwi",
+      "sha256": "e48a38b041bd04468bc1b76663fd2601a15225e03b9c97753e0ba2c0abbc58e7",
+      "bytes": 1056
+    },
+    {
+      "path": "iw4x/iw4x_00/images/button_b_big.iwi",
+      "sha256": "cdaa6b3f8729f7fa9ae15c578f6a4a8f7ed347d819dff3e6d03355a339f8b91f",
+      "bytes": 1632
+    },
+    {
+      "path": "iw4x/iw4x_00/images/button_back.iwi",
+      "sha256": "458bd246a26b0057acf6cf5986ef0ffed51a1e6b4867f78e2bce1cb403788333",
+      "bytes": 1056
+    },
+    {
+      "path": "iw4x/iw4x_00/images/button_lshldr.iwi",
+      "sha256": "63c0c6d02f294319cf347fd1ea4b614af55af002e339939f084f830912a52198",
+      "bytes": 1056
+    },
+    {
+      "path": "iw4x/iw4x_00/images/button_lshldr_big.iwi",
+      "sha256": "277ab1018499055af5149b7dba8bef30960c3633b9c9d9d655e4ff0dcc0667c2",
+      "bytes": 1632
+    },
+    {
+      "path": "iw4x/iw4x_00/images/button_lstick1.iwi",
+      "sha256": "41c790d2bd42a85295f1a1b75f9e30d77f2a070abfa9315679645c44ed0a1dc3",
+      "bytes": 1696
+    },
+    {
+      "path": "iw4x/iw4x_00/images/button_lstick2.iwi",
+      "sha256": "a49d70d38c594384fc2251f32f84624e8774a1aee1a30dfcb761f86f122f796c",
+      "bytes": 1696
+    },
+    {
+      "path": "iw4x/iw4x_00/images/button_lstick_combined.iwi",
+      "sha256": "4be3dcde927c2e1c8c2fc399aeb83e682ffdc33d52ec1e69df02d9d2bab0a9f9",
+      "bytes": 3360
+    },
+    {
+      "path": "iw4x/iw4x_00/images/button_ltrig.iwi",
+      "sha256": "41a14f86fc335960e0c4fc02c2ce12cbc849ed0aa97f0bbc0be2593b43999f40",
+      "bytes": 1056
+    },
+    {
+      "path": "iw4x/iw4x_00/images/button_ltrig_big.iwi",
+      "sha256": "dadd2e39c866fc0b850607f86155ffdf31d4b7423c93503aac6c04201af355f8",
+      "bytes": 1632
+    },
+    {
+      "path": "iw4x/iw4x_00/images/button_ps3_back.iwi",
+      "sha256": "2fcb424604df7e1e18cfb4aba3d88c6bed52717cf0f3f64e16a2b127fecf6ef7",
+      "bytes": 2592
+    },
+    {
+      "path": "iw4x/iw4x_00/images/button_ps3_circle.iwi",
+      "sha256": "90ee8805fa58781c823b6ac0e7dc14ccb2451e4b6fa1957bca582201c188d494",
+      "bytes": 4128
+    },
+    {
+      "path": "iw4x/iw4x_00/images/button_ps3_cross.iwi",
+      "sha256": "573b4f839c43a6fa5ac2c1a02e96736e69a64127d530ceb96e63a489b0a68402",
+      "bytes": 4128
+    },
+    {
+      "path": "iw4x/iw4x_00/images/button_ps3_l1.iwi",
+      "sha256": "d6dde1253a5a964ae1362e497890d7ef73aed19a90187283f086010f67e27c72",
+      "bytes": 4128
+    },
+    {
+      "path": "iw4x/iw4x_00/images/button_ps3_l2.iwi",
+      "sha256": "dcf19cd0a8a4a5a7097956b1451e90619ef217f4b0db8852a5e7bc7b78ce368d",
+      "bytes": 4128
+    },
+    {
+      "path": "iw4x/iw4x_00/images/button_ps3_l3.iwi",
+      "sha256": "ca589e8746640fdba86a88ea19a5308eaabaf7140440cbb3d0c80b2d9b2a0308",
+      "bytes": 7456
+    },
+    {
+      "path": "iw4x/iw4x_00/images/button_ps3_l3_alt.iwi",
+      "sha256": "b9ffece8e5c131a7a0ae29cc53ec0845572744df9adef27ef8df36d37675bffe",
+      "bytes": 7456
+    },
+    {
+      "path": "iw4x/iw4x_00/images/button_ps3_r1.iwi",
+      "sha256": "ccffdea2c680fbb09d047b5ae135b3ace9fd2024a42ae9dde3bf63b5e1a4b5cf",
+      "bytes": 4128
+    },
+    {
+      "path": "iw4x/iw4x_00/images/button_ps3_r2.iwi",
+      "sha256": "1c0ab82b549e7c6a047050f641668076ca8233a185f09c89466bc5775e1756b6",
+      "bytes": 4128
+    },
+    {
+      "path": "iw4x/iw4x_00/images/button_ps3_r3.iwi",
+      "sha256": "3c5580eaa2ce7e955ee40307bce84c794bfbb4696bbda210baea62062e573a84",
+      "bytes": 7920
+    },
+    {
+      "path": "iw4x/iw4x_00/images/button_ps3_r3_alt.iwi",
+      "sha256": "eb28dafe356cf811a5b0f5dd491e8ea4df38b0faede11077caaf0c3bb890f786",
+      "bytes": 7920
+    },
+    {
+      "path": "iw4x/iw4x_00/images/button_ps3_square.iwi",
+      "sha256": "fd6214e5d1702e95528dbedf06a3c317f1a4082a38c42e0d2d73efe0e447223c",
+      "bytes": 4128
+    },
+    {
+      "path": "iw4x/iw4x_00/images/button_ps3_start.iwi",
+      "sha256": "1cae8ab8cbee793d81a67fc98c39815fbee68b37b10b7235e9ce77cfec7fc23c",
+      "bytes": 2592
+    },
+    {
+      "path": "iw4x/iw4x_00/images/button_ps3_triangle.iwi",
+      "sha256": "132ea5c63ce14bf92745d4c705ff32b57e253784878dbd17aa5553da9464de2d",
+      "bytes": 4128
+    },
+    {
+      "path": "iw4x/iw4x_00/images/button_rshldr.iwi",
+      "sha256": "ba7cec47d92e81dca805d42452e44d1aa517a9db73f6cecb4343091e0ef62df5",
+      "bytes": 1056
+    },
+    {
+      "path": "iw4x/iw4x_00/images/button_rshldr_big.iwi",
+      "sha256": "8b68b187add67e0d54dcefc8b545888682b17b04dd265c18f37ed61bf97ef971",
+      "bytes": 1632
+    },
+    {
+      "path": "iw4x/iw4x_00/images/button_rstick1.iwi",
+      "sha256": "3b7c75b44a89b6d278473b985a92b2a0982447813af4497044d3e94981351c79",
+      "bytes": 1696
+    },
+    {
+      "path": "iw4x/iw4x_00/images/button_rstick2.iwi",
+      "sha256": "f8614fbaa292f308c24899922ae4fa59c393cebdb7401a4c5b3809de39632abd",
+      "bytes": 1696
+    },
+    {
+      "path": "iw4x/iw4x_00/images/button_rstick_combined.iwi",
+      "sha256": "5f75d3e9a72847ff97b1a859cd7d7717934c177be99decd9bde70e1a08477155",
+      "bytes": 3360
+    },
+    {
+      "path": "iw4x/iw4x_00/images/button_rtrig.iwi",
+      "sha256": "e610ed43c38db10fd4f0536c8a3ab2af013451f1a71649ccd61d917450850315",
+      "bytes": 1056
+    },
+    {
+      "path": "iw4x/iw4x_00/images/button_rtrig_big.iwi",
+      "sha256": "3500915bc4f86e32873397a6dfc46125fed15627c81a9b93188b1e98ab57f719",
+      "bytes": 1632
+    },
+    {
+      "path": "iw4x/iw4x_00/images/button_start.iwi",
+      "sha256": "9d5f8116421cf33dfce0e4559870c307da11ee3798fe62c72fc4aa8e047b011c",
+      "bytes": 1056
+    },
+    {
+      "path": "iw4x/iw4x_00/images/button_x.iwi",
+      "sha256": "0a6636bf622ae23fd957ace6ac9c47000e6ab7c5d59fddd8ab81b71a38c59b60",
+      "bytes": 7256
+    },
+    {
+      "path": "iw4x/iw4x_00/images/button_x_big.iwi",
+      "sha256": "e6d7f2e6f03433e920814f5577065dfa535ec4c4d7c6485d794a59ba9a586dd9",
+      "bytes": 1632
+    },
+    {
+      "path": "iw4x/iw4x_00/images/button_x_small.iwi",
+      "sha256": "a8b3bdd6cf664edc7233912ff86a8a1e965e8197143b48d47cda46ca39309ae0",
+      "bytes": 4520
+    },
+    {
+      "path": "iw4x/iw4x_00/images/button_y.iwi",
+      "sha256": "7a72778b516eacbed2c73dae3646c0899f5beb8d65b6f509dc38ed90a1051579",
+      "bytes": 1056
+    },
+    {
+      "path": "iw4x/iw4x_00/images/button_y_big.iwi",
+      "sha256": "834978e336540f0687870538b151977990a13912c63e201baef8be0a8725b5be",
+      "bytes": 1632
+    },
+    {
+      "path": "iw4x/iw4x_00/images/dpad_down.iwi",
+      "sha256": "eb3f2e545fd0a2719e9842be10d7d082005905ca3e49140b9c2cc0f549ef46d0",
+      "bytes": 1056
+    },
+    {
+      "path": "iw4x/iw4x_00/images/dpad_left.iwi",
+      "sha256": "8069d677f52ebe130e4ab02a3e5ac498efa2b33764e45f6c025cc95f908e8d45",
+      "bytes": 1056
+    },
+    {
+      "path": "iw4x/iw4x_00/images/dpad_left_right.iwi",
+      "sha256": "5d0286e0c843e10d3951295415fcf070807870223279dcc9f47126824656eb62",
+      "bytes": 1056
+    },
+    {
+      "path": "iw4x/iw4x_00/images/dpad_ps3_down.iwi",
+      "sha256": "9d847f74adde5d0f42d3faf8499ac1f1f1e80f0ada9c909d85a0bd52dc99ea27",
+      "bytes": 1056
+    },
+    {
+      "path": "iw4x/iw4x_00/images/dpad_ps3_left.iwi",
+      "sha256": "50797560acac1f1a133021b412ec5092532ee17b62aada9f1691cca65e9d914b",
+      "bytes": 1056
+    },
+    {
+      "path": "iw4x/iw4x_00/images/dpad_ps3_right.iwi",
+      "sha256": "af0adafd90f2d0089260765cfa41f70139ebf83e590d68bf96480cf57a6249a5",
+      "bytes": 1056
+    },
+    {
+      "path": "iw4x/iw4x_00/images/dpad_ps3_up.iwi",
+      "sha256": "2ff726d234ed3ce7ac486f2afb347b8cb95bea237ed770bbcd04b4a922fd4a7c",
+      "bytes": 1056
+    },
+    {
+      "path": "iw4x/iw4x_00/images/dpad_right.iwi",
+      "sha256": "ceb940649b115002e5a6e4adfc9842c25ac05a3b455be612e94d95ba7ba945c6",
+      "bytes": 1056
+    },
+    {
+      "path": "iw4x/iw4x_00/images/dpad_up.iwi",
+      "sha256": "27088e7fa830dacf7f525bf79e8be6181ba56b723e930afcecadc6dad1cb6f76",
+      "bytes": 1056
+    },
+    {
+      "path": "iw4x/iw4x_00/images/dpad_up_down.iwi",
+      "sha256": "13a11ce0593de4572d622fab8907d2709e16ffd2de6efab373b250349d53cce2",
+      "bytes": 1056
+    },
+    {
+      "path": "iw4x/iw4x_00/images/hud_dpad_arrow_left.iwi",
+      "sha256": "f77015c6bb90a5e45d495ecc7e79ae5fe42c64921256e5bac4bda5a05101af74",
+      "bytes": 4128
+    },
+    {
+      "path": "iw4x/iw4x_00/images/hud_dpad_arrow_right.iwi",
+      "sha256": "556d954fb0fc36cc15118590701fe9503d11c680d53e714bff82a170a8358a5a",
+      "bytes": 4128
+    },
+    {
+      "path": "iw4x/iw4x_00/images/hud_dpad_ps3.iwi",
+      "sha256": "05251fea39f17d2026ee2c0def1d0fb6e8f8c6622037054b837fe798a9c0e3fc",
+      "bytes": 2336
+    },
+    {
+      "path": "iw4x/iw4x_00/images/hud_dpad_xbox360.iwi",
+      "sha256": "dfc2c7a92e9de951cd06149837fb8790713bb9ff0983121bff6882ac5dd9f370",
+      "bytes": 4128
+    }
+  ],
+  "conversion": "IWI8 to IWI6 container; identical pixel payload and dimensions; unused malformed big variants excluded",
+  "convertedFiles": [
+    {
+      "file": "button_a.iwi",
+      "installedPath": "main/images/live_controller/button_a.iwi",
+      "sha256": "3a0439c1f098613e2f20c0b43fec0d16452df017bb463a79d74198625f01e566",
+      "sourceDimensions": [
+        32,
+        32
+      ],
+      "dimensions": [
+        32,
+        32
+      ]
+    },
+    {
+      "file": "button_b.iwi",
+      "installedPath": "main/images/live_controller/button_b.iwi",
+      "sha256": "bee941be4cbe0dda21e86159e26c828aca75117cbce6de4838a8910693097a9b",
+      "sourceDimensions": [
+        32,
+        32
+      ],
+      "dimensions": [
+        32,
+        32
+      ]
+    },
+    {
+      "file": "button_back.iwi",
+      "installedPath": "main/images/live_controller/button_back.iwi",
+      "sha256": "0d79ae78d2e1da39a8dd12930c4c5ef9f5986a95e6ccecfa73244e104ed67021",
+      "sourceDimensions": [
+        32,
+        32
+      ],
+      "dimensions": [
+        32,
+        32
+      ]
+    },
+    {
+      "file": "button_lshldr.iwi",
+      "installedPath": "main/images/live_controller/button_lshldr.iwi",
+      "sha256": "6ab0a4de914852dd736765cd665d2fe2a01556d79de6b2561b85bb2aa57ebc1a",
+      "sourceDimensions": [
+        32,
+        32
+      ],
+      "dimensions": [
+        32,
+        32
+      ]
+    },
+    {
+      "file": "button_lstick1.iwi",
+      "installedPath": "main/images/live_controller/button_lstick1.iwi",
+      "sha256": "4aaeb163531d4be24e63234da725fe47faca9bff80273fdbb0446072bddd0511",
+      "sourceDimensions": [
+        52,
+        32
+      ],
+      "dimensions": [
+        52,
+        32
+      ]
+    },
+    {
+      "file": "button_lstick2.iwi",
+      "installedPath": "main/images/live_controller/button_lstick2.iwi",
+      "sha256": "aa4f3dfab8eecdd502c400e8f6e880f41220aa21814e4e9d2358da579152c984",
+      "sourceDimensions": [
+        52,
+        32
+      ],
+      "dimensions": [
+        52,
+        32
+      ]
+    },
+    {
+      "file": "button_lstick_combined.iwi",
+      "installedPath": "main/images/live_controller/button_lstick_combined.iwi",
+      "sha256": "eba6ef1688a342886464c21474a4204038b3784ac194db7a3138a999a03b5f64",
+      "sourceDimensions": [
+        52,
+        64
+      ],
+      "dimensions": [
+        52,
+        64
+      ]
+    },
+    {
+      "file": "button_ltrig.iwi",
+      "installedPath": "main/images/live_controller/button_ltrig.iwi",
+      "sha256": "e822cede004834fe6861516be1682264bcbb6faee15febf65daed2913beba53a",
+      "sourceDimensions": [
+        32,
+        32
+      ],
+      "dimensions": [
+        32,
+        32
+      ]
+    },
+    {
+      "file": "button_ps3_back.iwi",
+      "installedPath": "main/images/live_controller/button_ps3_back.iwi",
+      "sha256": "42cb634905633195ffed5296fcd0b3a170923a7c861daeb94ba7c3b64dcc71c4",
+      "sourceDimensions": [
+        32,
+        20
+      ],
+      "dimensions": [
+        32,
+        20
+      ]
+    },
+    {
+      "file": "button_ps3_circle.iwi",
+      "installedPath": "main/images/live_controller/button_ps3_circle.iwi",
+      "sha256": "6e17ca4ac5e50cc9e06892032920c985c9dc984d92eef3a57f90b5c5bd971d0e",
+      "sourceDimensions": [
+        32,
+        32
+      ],
+      "dimensions": [
+        32,
+        32
+      ]
+    },
+    {
+      "file": "button_ps3_cross.iwi",
+      "installedPath": "main/images/live_controller/button_ps3_cross.iwi",
+      "sha256": "47d2172134d85de7b1aff68c165cca45aee6db86658dc3f2ce68820e779579b9",
+      "sourceDimensions": [
+        32,
+        32
+      ],
+      "dimensions": [
+        32,
+        32
+      ]
+    },
+    {
+      "file": "button_ps3_l1.iwi",
+      "installedPath": "main/images/live_controller/button_ps3_l1.iwi",
+      "sha256": "8775af59645fc55063a9049f83beb9e3a0d6032a7b51951a33bfb3271f3f8316",
+      "sourceDimensions": [
+        32,
+        32
+      ],
+      "dimensions": [
+        32,
+        32
+      ]
+    },
+    {
+      "file": "button_ps3_l2.iwi",
+      "installedPath": "main/images/live_controller/button_ps3_l2.iwi",
+      "sha256": "42741a39ba291189268cd174a7fae66311ac98e94d4cb8dcac91734e42a73f18",
+      "sourceDimensions": [
+        32,
+        32
+      ],
+      "dimensions": [
+        32,
+        32
+      ]
+    },
+    {
+      "file": "button_ps3_l3.iwi",
+      "installedPath": "main/images/live_controller/button_ps3_l3.iwi",
+      "sha256": "04a3408d5f66f26beb0919c23167a9d8e649028be1ae3149bc26f27d42fbc43c",
+      "sourceDimensions": [
+        58,
+        32
+      ],
+      "dimensions": [
+        58,
+        32
+      ]
+    },
+    {
+      "file": "button_ps3_l3_alt.iwi",
+      "installedPath": "main/images/live_controller/button_ps3_l3_alt.iwi",
+      "sha256": "0aac30ec58cc6f3a6efb697b8ba68d54e0daa004b46ed1ed87307769881e0ab5",
+      "sourceDimensions": [
+        58,
+        32
+      ],
+      "dimensions": [
+        58,
+        32
+      ]
+    },
+    {
+      "file": "button_ps3_r1.iwi",
+      "installedPath": "main/images/live_controller/button_ps3_r1.iwi",
+      "sha256": "66e809e8bb47840c293902382637544277fd55c1422b1d111afdd05b413d684a",
+      "sourceDimensions": [
+        32,
+        32
+      ],
+      "dimensions": [
+        32,
+        32
+      ]
+    },
+    {
+      "file": "button_ps3_r2.iwi",
+      "installedPath": "main/images/live_controller/button_ps3_r2.iwi",
+      "sha256": "570a5c923b653a0cbb4dfaccfc62b5bbb502c1d5be508ab3fceec84f2857e57f",
+      "sourceDimensions": [
+        32,
+        32
+      ],
+      "dimensions": [
+        32,
+        32
+      ]
+    },
+    {
+      "file": "button_ps3_r3.iwi",
+      "installedPath": "main/images/live_controller/button_ps3_r3.iwi",
+      "sha256": "005c6d647d4b1dbd18dd8a1f44a728706eb18e073ddbc870a1a5c1c8a2de0aa7",
+      "sourceDimensions": [
+        58,
+        34
+      ],
+      "dimensions": [
+        58,
+        34
+      ]
+    },
+    {
+      "file": "button_ps3_r3_alt.iwi",
+      "installedPath": "main/images/live_controller/button_ps3_r3_alt.iwi",
+      "sha256": "d0137feea3d1e59501875eab852918137aa5d67bfe93b664f89d769d39520f24",
+      "sourceDimensions": [
+        58,
+        34
+      ],
+      "dimensions": [
+        58,
+        34
+      ]
+    },
+    {
+      "file": "button_ps3_square.iwi",
+      "installedPath": "main/images/live_controller/button_ps3_square.iwi",
+      "sha256": "6b1d984b812aa5623bb2084ad32cce5c55783bf66b38775510f8a15edf59acc5",
+      "sourceDimensions": [
+        32,
+        32
+      ],
+      "dimensions": [
+        32,
+        32
+      ]
+    },
+    {
+      "file": "button_ps3_start.iwi",
+      "installedPath": "main/images/live_controller/button_ps3_start.iwi",
+      "sha256": "7e217568acff3de36e1c769cf2d31df76288d49885d8fe21956d9337b5b356c3",
+      "sourceDimensions": [
+        32,
+        20
+      ],
+      "dimensions": [
+        32,
+        20
+      ]
+    },
+    {
+      "file": "button_ps3_triangle.iwi",
+      "installedPath": "main/images/live_controller/button_ps3_triangle.iwi",
+      "sha256": "4405a4f0073d58483b423753a603d6fd494c69827cbb2a2d1de3b2fb9f709d43",
+      "sourceDimensions": [
+        32,
+        32
+      ],
+      "dimensions": [
+        32,
+        32
+      ]
+    },
+    {
+      "file": "button_rshldr.iwi",
+      "installedPath": "main/images/live_controller/button_rshldr.iwi",
+      "sha256": "56e2fa606e4974570ff4936b0b1df13cdc559e67d852e08f945ff13d3533cd31",
+      "sourceDimensions": [
+        32,
+        32
+      ],
+      "dimensions": [
+        32,
+        32
+      ]
+    },
+    {
+      "file": "button_rstick1.iwi",
+      "installedPath": "main/images/live_controller/button_rstick1.iwi",
+      "sha256": "a4002f9080247d0f2794632b5ad02c204d3be00d14a90ee42726e3248c385b62",
+      "sourceDimensions": [
+        52,
+        32
+      ],
+      "dimensions": [
+        52,
+        32
+      ]
+    },
+    {
+      "file": "button_rstick2.iwi",
+      "installedPath": "main/images/live_controller/button_rstick2.iwi",
+      "sha256": "4c9112422491843c0a0225c66188a628bd9e4f56f2fc0f8d053caa18ab665e9f",
+      "sourceDimensions": [
+        52,
+        32
+      ],
+      "dimensions": [
+        52,
+        32
+      ]
+    },
+    {
+      "file": "button_rstick_combined.iwi",
+      "installedPath": "main/images/live_controller/button_rstick_combined.iwi",
+      "sha256": "8dd9ce2d43fd79542a65758ee3698e8107db383120277fcaff85d489f7c1561a",
+      "sourceDimensions": [
+        52,
+        64
+      ],
+      "dimensions": [
+        52,
+        64
+      ]
+    },
+    {
+      "file": "button_rtrig.iwi",
+      "installedPath": "main/images/live_controller/button_rtrig.iwi",
+      "sha256": "870d0762e72357672d7fcc91ed0acebf4529c89f0daf2bf13bc9867cc4aff78d",
+      "sourceDimensions": [
+        32,
+        32
+      ],
+      "dimensions": [
+        32,
+        32
+      ]
+    },
+    {
+      "file": "button_start.iwi",
+      "installedPath": "main/images/live_controller/button_start.iwi",
+      "sha256": "dc1587290b643a23c47b1ec7a211bed07a5c9ba74dc1cdd463fd0886ad398de0",
+      "sourceDimensions": [
+        32,
+        32
+      ],
+      "dimensions": [
+        32,
+        32
+      ]
+    },
+    {
+      "file": "button_x.iwi",
+      "installedPath": "main/images/live_controller/button_x.iwi",
+      "sha256": "4c0a590b5844e45ebcd2a2c9d27bc94ddbf54eae40421393f948e0f75dba3daa",
+      "sourceDimensions": [
+        42,
+        43
+      ],
+      "dimensions": [
+        42,
+        43
+      ]
+    },
+    {
+      "file": "button_x_small.iwi",
+      "installedPath": "main/images/live_controller/button_x_small.iwi",
+      "sha256": "f894a21bed08b82ec7e8180cc0c2c5ad766c212f0cda1850b8db59efbb44a609",
+      "sourceDimensions": [
+        34,
+        33
+      ],
+      "dimensions": [
+        34,
+        33
+      ]
+    },
+    {
+      "file": "button_y.iwi",
+      "installedPath": "main/images/live_controller/button_y.iwi",
+      "sha256": "109ead66b125929f27d1d0ef1683b0d81c17d2d47d4cc1f39b1b275a81e17542",
+      "sourceDimensions": [
+        32,
+        32
+      ],
+      "dimensions": [
+        32,
+        32
+      ]
+    },
+    {
+      "file": "dpad_down.iwi",
+      "installedPath": "main/images/live_controller/dpad_down.iwi",
+      "sha256": "95bbcd57f3bdccb925fe44b73686184ad0a48936efe63b0a1e9723bd29809aab",
+      "sourceDimensions": [
+        32,
+        32
+      ],
+      "dimensions": [
+        32,
+        32
+      ]
+    },
+    {
+      "file": "dpad_left.iwi",
+      "installedPath": "main/images/live_controller/dpad_left.iwi",
+      "sha256": "950166bb7b26202a62154fcdf7cf2ac63e5578e22d84f722d4291eeeb0466525",
+      "sourceDimensions": [
+        32,
+        32
+      ],
+      "dimensions": [
+        32,
+        32
+      ]
+    },
+    {
+      "file": "dpad_left_right.iwi",
+      "installedPath": "main/images/live_controller/dpad_left_right.iwi",
+      "sha256": "15bebe94f0d8e3d0834e338b68b7b74e728c50a181b2b7408a86e6a5278dd3ec",
+      "sourceDimensions": [
+        32,
+        32
+      ],
+      "dimensions": [
+        32,
+        32
+      ]
+    },
+    {
+      "file": "dpad_ps3_down.iwi",
+      "installedPath": "main/images/live_controller/dpad_ps3_down.iwi",
+      "sha256": "af501d46c553bc855ef9163d7de146c28df79fd849622331835463ae7f776d32",
+      "sourceDimensions": [
+        32,
+        32
+      ],
+      "dimensions": [
+        32,
+        32
+      ]
+    },
+    {
+      "file": "dpad_ps3_left.iwi",
+      "installedPath": "main/images/live_controller/dpad_ps3_left.iwi",
+      "sha256": "30ec33fd4c670db7ecf98571e45284e797e8a5ad3304a2796f27fbdf2c2f3aec",
+      "sourceDimensions": [
+        32,
+        32
+      ],
+      "dimensions": [
+        32,
+        32
+      ]
+    },
+    {
+      "file": "dpad_ps3_right.iwi",
+      "installedPath": "main/images/live_controller/dpad_ps3_right.iwi",
+      "sha256": "c94321990c0f0fd8554e632cd572d3e25f03472345188dec2640eabb9c44d6e5",
+      "sourceDimensions": [
+        32,
+        32
+      ],
+      "dimensions": [
+        32,
+        32
+      ]
+    },
+    {
+      "file": "dpad_ps3_up.iwi",
+      "installedPath": "main/images/live_controller/dpad_ps3_up.iwi",
+      "sha256": "77d71eed959b244cf1747d0533f9eb4d39f152ad80ddd68e1f6cd2559e854681",
+      "sourceDimensions": [
+        32,
+        32
+      ],
+      "dimensions": [
+        32,
+        32
+      ]
+    },
+    {
+      "file": "dpad_right.iwi",
+      "installedPath": "main/images/live_controller/dpad_right.iwi",
+      "sha256": "70dc336bcba11122cf331fe420c51e6fe9d4c9885a56bab867b32ff065663407",
+      "sourceDimensions": [
+        32,
+        32
+      ],
+      "dimensions": [
+        32,
+        32
+      ]
+    },
+    {
+      "file": "dpad_up.iwi",
+      "installedPath": "main/images/live_controller/dpad_up.iwi",
+      "sha256": "b6c619f5a1ca6f816e50c651521842a4e5f8f6617a80d15f61fea66d6b48be8d",
+      "sourceDimensions": [
+        32,
+        32
+      ],
+      "dimensions": [
+        32,
+        32
+      ]
+    },
+    {
+      "file": "dpad_up_down.iwi",
+      "installedPath": "main/images/live_controller/dpad_up_down.iwi",
+      "sha256": "6e37ced129602213bd47b5e33a70babfc03cd6da4d5146a81ac81bd51889110b",
+      "sourceDimensions": [
+        32,
+        32
+      ],
+      "dimensions": [
+        32,
+        32
+      ]
+    },
+    {
+      "file": "hud_dpad_arrow_left.iwi",
+      "installedPath": "main/images/live_controller/hud_dpad_arrow_left.iwi",
+      "sha256": "92ccc57edc9ffa755b94a0fe3d091ad92b3e2fe1d3ca7ac6f65720dbe6b0d851",
+      "sourceDimensions": [
+        64,
+        64
+      ],
+      "dimensions": [
+        64,
+        64
+      ]
+    },
+    {
+      "file": "hud_dpad_arrow_right.iwi",
+      "installedPath": "main/images/live_controller/hud_dpad_arrow_right.iwi",
+      "sha256": "a31a6864ba036f43e2de382304a3ca5cd590daf9188f31e5ae19337bd781b7d3",
+      "sourceDimensions": [
+        64,
+        64
+      ],
+      "dimensions": [
+        64,
+        64
+      ]
+    },
+    {
+      "file": "hud_dpad_ps3.iwi",
+      "installedPath": "main/images/live_controller/hud_dpad_ps3.iwi",
+      "sha256": "bdfb3f56d5df23f8692c6c3984dd6fb9906a2ed3150c509145898e3adc4bcaff",
+      "sourceDimensions": [
+        48,
+        48
+      ],
+      "dimensions": [
+        48,
+        48
+      ]
+    },
+    {
+      "file": "hud_dpad_xbox360.iwi",
+      "installedPath": "main/images/live_controller/hud_dpad_xbox360.iwi",
+      "sha256": "368661c4f6476e113404f74e3667b5fb8ecc037bede9c323783410422b07b007",
+      "sourceDimensions": [
+        64,
+        64
+      ],
+      "dimensions": [
+        64,
+        64
+      ]
+    }
+  ],
+  "excludedFiles": [
+    {
+      "file": "button_a_big.iwi",
+      "reason": "Unused upstream variant has incomplete DXT data for its declared dimensions"
+    },
+    {
+      "file": "button_b_big.iwi",
+      "reason": "Unused upstream variant has incomplete DXT data for its declared dimensions"
+    },
+    {
+      "file": "button_lshldr_big.iwi",
+      "reason": "Unused upstream variant has incomplete DXT data for its declared dimensions"
+    },
+    {
+      "file": "button_ltrig_big.iwi",
+      "reason": "Unused upstream variant has incomplete DXT data for its declared dimensions"
+    },
+    {
+      "file": "button_rshldr_big.iwi",
+      "reason": "Unused upstream variant has incomplete DXT data for its declared dimensions"
+    },
+    {
+      "file": "button_rtrig_big.iwi",
+      "reason": "Unused upstream variant has incomplete DXT data for its declared dimensions"
+    },
+    {
+      "file": "button_x_big.iwi",
+      "reason": "Unused upstream variant has incomplete DXT data for its declared dimensions"
+    },
+    {
+      "file": "button_y_big.iwi",
+      "reason": "Unused upstream variant has incomplete DXT data for its declared dimensions"
+    }
+  ]
+}

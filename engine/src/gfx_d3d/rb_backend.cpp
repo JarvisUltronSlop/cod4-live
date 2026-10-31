@@ -1,5 +1,8 @@
 #include <universal/q_shared.h>
 #include "rb_backend.h"
+#ifdef COD4_LIVE_CONTROLLER
+#include <live/controller_glyph.h>
+#endif
 #include <qcommon/mem_track.h>
 
 #include "rb_logfile.h"
@@ -1787,7 +1790,11 @@ void __cdecl DrawText2D(
                             letter = 79;
                         }
                     }
-                    if (letter == 94 && (*curText == 1 || *curText == 2))
+                    if (letter == 94 && (*curText == 1 || *curText == 2
+#ifdef COD4_LIVE_CONTROLLER
+                        || live::controller_glyph::Named(curText)
+#endif
+                        ))
                     {
                         RotateXY(cosAngle, sinAngle, startX, startY, xa, ya, &xRot, &yRot);
                         iconWidth = RB_DrawHudIcon(
@@ -1808,7 +1815,11 @@ void __cdecl DrawText2D(
                         xa = xa + iconWidth;
                         if ((renderFlags & 0x80) != 0)
                             xa = padding * xScale + xa;
+#ifdef COD4_LIVE_CONTROLLER
+                        curText += live::controller_glyph::Bytes(curText);
+#else
                         curText += 7;
+#endif
                         ++count;
                         --maxLengthRemaining;
                     }
@@ -2127,7 +2138,11 @@ double __cdecl RB_DrawHudIcon(
     float ya; // [esp+60h] [ebp+10h]
 
     iassert( text );
-    if (*text == 1)
+    if (*text == 1
+#ifdef COD4_LIVE_CONTROLLER
+        || live::controller_glyph::Named(text)
+#endif
+        )
     {
         s0 = 0.0;
         s1 = 1.0;
@@ -2143,9 +2158,20 @@ double __cdecl RB_DrawHudIcon(
     ya = y - ((double)font->pixelHeight * yScale + h) * 0.5;
     iassert( w > 0 );
     iassert( h > 0 );
-    if (!IsValidMaterialHandle(*(Material *const *)(text + 3)))
-        return 0.0;
-    v9 = Material_FromHandle(*(Material **)(text + 3));
+#ifdef COD4_LIVE_CONTROLLER
+    if (live::controller_glyph::Named(text))
+    {
+        v9 = live::controller_glyph::Resolve(text);
+        // Malformed/unavailable named glyphs consume their advance without
+        // dereferencing user-controlled text as a material pointer.
+        if (!v9) return w;
+    }
+    else
+#endif
+    {
+        if (!IsValidMaterialHandle(*(Material *const *)(text + 3))) return 0.0;
+        v9 = Material_FromHandle(*(Material **)(text + 3));
+    }
     RB_DrawStretchPicRotate(v9, x, ya, w, h, s0, 0.0, s1, 1.0, sinAngle, cosAngle, color, GFX_PRIM_STATS_HUD);
     return w;
 }

@@ -7,6 +7,11 @@
     "repository": "https://github.com/iw4x/iw4x-client",
     "revision": "47c44fc0ce6f05172f34cc88c294121615df12e4"
   },
+  "iw4xControllerArtwork": {
+    "repository": "https://github.com/iw4x/iw4x-rawfiles",
+    "revision": "5009e6d54dab90f6196a8518b9a4d084bed73e2b",
+    "scope": "controller images only; IWI8 to IWI6 container conversion preserves pixel payloads"
+  },
   "installer": {
     "repository": "https://github.com/JarvisUltronSlop/cod4x1khz",
     "revision": "59b5d59fefc6b89e251da5bdd1ccdc11dbf00098"
@@ -20,5 +25,9 @@
     "repository": "https://github.com/kcat/openal-soft",
     "version": "1.25.2",
     "revision": "b2c48f7718ef3fcf67921a8b6534c4914e328970"
+  },
+  "BotWarfare": {
+    "repository": "https://github.com/ineedbots/iw3_bot_warfare",
+    "revision": "901895a10dee921142cf4228c467f99013b5b6c4"
   }
 }

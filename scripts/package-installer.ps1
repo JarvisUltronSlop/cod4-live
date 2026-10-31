@@ -17,6 +17,7 @@ $entries = [Collections.Generic.List[object]]::new()
 function Add-PayloadFile([string]$Source, [string]$Relative) {
     if ($Relative -match '\.(iwd|ff|bik|flt)$' -or $Relative -match '(^|/)(iw3mp|iw3sp|binkw32|mss32)\.' -or $Relative.Contains('..')) { throw "Forbidden payload: $Relative" }
     if (!(Test-Path -LiteralPath $Source -PathType Leaf)) { throw "Missing payload: $Source" }
+    if ($entries | Where-Object { $_.relative -ieq $Relative }) { throw "Duplicate payload path: $Relative" }
     $name = 'file' + $entries.Count.ToString('D5')
     Copy-Item -LiteralPath $Source -Destination (Join-Path $stage $name)
     $entries.Add([pscustomobject]@{file=$name; relative=$Relative; sha256=(Get-FileHash -LiteralPath $Source -Algorithm SHA256).Hash.ToLowerInvariant()})
@@ -32,8 +33,16 @@ foreach ($name in @('cod4-live.exe','cod4-live_server.exe','steam_api.dll','D3DX
 Add-PayloadFile (Join-Path $projectRoot 'LICENSE') 'notices/LICENSE.txt'
 Add-PayloadFile (Join-Path $projectRoot 'upstream-lock.json') 'notices/upstream-lock.json'
 Add-PayloadFile (Join-Path $projectRoot 'scripts/install-server-runtime.ps1') 'install-server-runtime.ps1'
+foreach ($tree in @('botwarfare', 'controller')) {
+    $sourceRoot = Join-Path $projectRoot "assets/$tree"
+    if (!(Test-Path -LiteralPath $sourceRoot -PathType Container)) { continue }
+    foreach ($file in Get-ChildItem -LiteralPath $sourceRoot -File -Recurse) {
+        $relative = $file.FullName.Substring($sourceRoot.Length).TrimStart('\','/').Replace('\','/')
+        Add-PayloadFile $file.FullName $relative
+    }
+}
 if (Test-Path -LiteralPath (Join-Path $projectRoot 'docs/INSTALLER.md')) { Add-PayloadFile (Join-Path $projectRoot 'docs/INSTALLER.md') 'INSTALLER.txt' }
-foreach ($guide in @('CONTROLLER','NETWORK','STEAM_AUTH','VALIDATION')) {
+foreach ($guide in @('CONTROLLER','NETWORK','STEAM_AUTH','BOT_WARFARE','VALIDATION')) {
     Add-PayloadFile (Join-Path $projectRoot "docs/$guide.md") "docs/$guide.txt"
 }
 if (Test-Path -LiteralPath (Join-Path $projectRoot 'docs/THIRD-PARTY.md')) { Add-PayloadFile (Join-Path $projectRoot 'docs/THIRD-PARTY.md') 'notices/THIRD-PARTY.txt' }

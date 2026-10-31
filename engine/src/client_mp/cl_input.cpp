@@ -414,7 +414,7 @@ usercmd_s *__cdecl CL_CreateCmd(usercmd_s *result, int localClientNum)
     CL_FinishMove(localClientNum, &cmd);
 #ifdef COD4_LIVE_CONTROLLER
     // Match server neutralization and prediction, even for mixed-input frames.
-    if (live::InputPolicy::BlockGameplay(cmd.inputFlags) || live::controller::MenuOpen())
+    if (live::InputPolicy::BlockGameplay(cmd.inputFlags) || live::controller::MenuOpen() || !live::controller::HasFocus())
     {
         cmd.buttons = 0;
         cmd.forwardmove = cmd.rightmove = 0;

@@ -9,6 +9,7 @@
 
 #ifdef KISAK_MP
 #include <game_mp/g_utils_mp.h>
+#include <live/bot_warfare.h>
 #include <server_mp/server_mp.h>
 #elif KISAK_SP
 #include "g_main.h"
@@ -732,6 +733,7 @@ uint32_t __cdecl G_GetWeaponIndexForName(const char *name)
 void __cdecl G_SelectWeaponIndex(int clientNum, int iWeaponIndex)
 {
 #ifdef KISAK_MP
+    if (live::bots::SelectWeapon(clientNum, iWeaponIndex, false)) return;
     SV_GameSendServerCommand(clientNum, SV_CMD_RELIABLE, va("%c %i", 97, iWeaponIndex));
 #elif KISAK_SP
     SV_GameSendServerCommand(clientNum, va("sw %i", iWeaponIndex));
@@ -742,6 +744,7 @@ void __cdecl G_SetEquippedOffHand(int clientNum, uint32_t offHandIndex)
 {
 #ifdef KISAK_MP
     BG_AssertOffhandIndexOrNone(offHandIndex);
+    if (live::bots::SelectWeapon(clientNum, offHandIndex, true)) return;
     SV_GameSendServerCommand(clientNum, SV_CMD_RELIABLE, va("%c %i", 67, offHandIndex));
 #elif KISAK_SP
     BG_AssertOffhandIndexOrNone(offHandIndex);

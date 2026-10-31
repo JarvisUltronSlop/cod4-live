@@ -56,8 +56,8 @@ struct scrVarPub_t // sizeof=0x2007C
     HunkUser* programHunkUser;
     const char* programBuffer;
     const char* endScriptBuffer;
-    uint16_t saveIdMap[32768];
-    uint16_t saveIdMapRev[32768];
+    uint16_t saveIdMap[VARIABLELIST_PARENT_SIZE];
+    uint16_t saveIdMapRev[VARIABLELIST_PARENT_SIZE];
     bool bScriptProfile;
     float scriptProfileMinTime;
     bool bScriptProfileBuiltin;
@@ -70,7 +70,7 @@ struct scrVarPub_t // sizeof=0x2007C
     int totalObjectRefCount;
     volatile uint32_t totalVectorRefCount;
 };
-static_assert(sizeof(scrVarPub_t) == 0x2007C);
+static_assert(sizeof(scrVarPub_t) == 0x7C + 4 * VARIABLELIST_PARENT_SIZE);
 
 struct PrecacheEntry // sizeof=0x8
 {                                       // ...

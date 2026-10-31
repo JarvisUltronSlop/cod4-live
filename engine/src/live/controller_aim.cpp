@@ -22,6 +22,8 @@ std::size_t previousSignature{};
 
 void EnsureProcessor()
 {
+    // IW4x likewise reads graph3 from its host engine. Preserve CoD4's owned
+    // view_input_3.graph knots; the portable evaluator applies them identically.
     const auto& native = aaInputGraph[3];
     std::size_t signature = std::hash<float>{}(Sensitivity());
     for (int i = 0; i < native.knotCount && i < 32; ++i)

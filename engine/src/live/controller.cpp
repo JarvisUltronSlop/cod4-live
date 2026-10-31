@@ -7,6 +7,9 @@
 #include "iw4x/Mapping/Binding.hpp"
 #include "iw4x/Mapping/Physical.hpp"
 #include "iw4x/Mapping/StickLayout.hpp"
+#include "iw4x/Mapping/Glyph.hpp"
+#include "controller_menu.h"
+#include "controller_glyph.h"
 #include "controller.h"
 #include "input_policy.h"
 #include "controller_policy.h"
@@ -46,20 +49,21 @@ button_set previousButtons{};
 std::array<bool, 256> heldKeyboard{};
 std::array<ActionLatch, 256> actionLatches{};
 std::array<std::string, 256> releaseCommands;
-std::array<unsigned, 4> repeatAt{};
+std::array<unsigned, 4> repeatAt{}, repeatStarted{};
 std::array<bool, 4> previousDirections{};
 std::array<bool, 2> triggers{};
 std::array<unsigned, 256> pressedAt{};
-bool ready{}, focused{}, connected{}, inUse{}, injecting{}, navigating{}, settings{}, pendingMouse{}, pendingKeyboard{};
+bool ready{}, focused{}, connected{}, inUse{}, injecting{}, navigating{}, pendingMouse{}, pendingKeyboard{};
 bool usedController{}, previousGameplay{}, dispatching{};
 unsigned lastSample{}, lastWarning{}, disconnectedAt{};
 bool disconnectPrompt{};
-int mode{-1}, selectedSetting{};
+int mode{-1};
 std::string configuredLayout;
 unsigned rumbleEnd{};
 
 const dvar_t *backend{}, *present{}, *inputUsed{}, *style{}, *sensitivity{}, *adsSensitivity{}, *invert{},
-    *inner{}, *outer{}, *triggerDeadzone{}, *buttonConfig{}, *stickConfig{}, *rumble{};
+    *inner{}, *outer{}, *triggerDeadzone{}, *buttonConfig{}, *stickConfig{}, *rumble{},
+    *antiDeadzone{}, *triggerHysteresis{}, *stickPressed{}, *stickHysteresis{}, *scrollFirst{}, *scrollRest{}, *scrollMin{}, *scrollAcceleration{};
 cmd_function_s settingsCommand{};
 constexpr std::array<engine_key, 16> buttonKeys{
     engine_key::button_a, engine_key::button_b, engine_key::button_x, engine_key::button_y,
@@ -70,21 +74,6 @@ constexpr std::array<button, 16> physicalButtons{
     button::face_south, button::face_east, button::face_west, button::face_north,
     button::dpad_up, button::dpad_down, button::dpad_left, button::dpad_right,
     button::l1, button::r1, button::l2, button::r2, button::l3, button::r3, button::start, button::back};
-constexpr const char* layouts[]{"buttons_default", "buttons_tactical", "buttons_lefty", "buttons_nomad",
-    "buttons_default_alt", "buttons_tactical_alt"};
-constexpr const char* sticks[]{"thumbstick_default", "thumbstick_southpaw", "thumbstick_legacy", "thumbstick_legacysouthpaw"};
-constexpr const char* layoutLabels[]{"Default", "Tactical", "Left handed", "Nomad", "Default flipped", "Tactical flipped"};
-constexpr const char* stickLabels[]{"Standard", "Southpaw", "Legacy", "Legacy southpaw"};
-
-template<std::size_t N>
-const char* SettingLabel(const char* value, const char* const (&names)[N], const char* const (&labels)[N])
-{
-    for (std::size_t i = 0; i < N; ++i)
-        if (!strcmp(value, names[i])) return labels[i];
-    return "Custom";
-}
-
-
 void SetInUse(bool value)
 {
     inUse = value;
@@ -97,7 +86,7 @@ bool MenuContext()
     // A held scoreboard remains gameplay, matching CoD4 and IW4x. Otherwise
     // opening it would release +scores immediately and close it again.
     if (UI_GetActiveMenu(0) == UIMENU_SCOREBOARD) catchers &= ~KEYCATCH_UI;
-    return settings || CL_GetLocalClientConnectionState(0) != CA_ACTIVE ||
+    return CL_GetLocalClientConnectionState(0) != CA_ACTIVE ||
         (catchers & (KEYCATCH_UI | KEYCATCH_CONSOLE | KEYCATCH_MESSAGE | KEYCATCH_SCRIPT)) != 0;
 }
 
@@ -152,60 +141,11 @@ void MenuKey(int key, bool down)
     injecting = false;
 }
 
-void SetSettings(bool show)
-{
-    ReleaseAll();
-    settings = show;
-    if (show && !Key_IsCatcherActive(0, KEYCATCH_UI)) UI_SetActiveMenu(0, UIMENU_INGAME);
-}
-
-void OpenSettings() { SetSettings(true); }
-
-void ChangeSetting(int step)
-{
-    auto adjust = [step](const dvar_t* dvar, float increment, float minimum, float maximum)
-    {
-        Dvar_SetFloat(dvar, std::clamp(dvar->current.value + increment * step, minimum, maximum));
-    };
-    auto cycle = [step](const dvar_t* dvar, auto& values)
-    {
-        int count = static_cast<int>(std::size(values)), index = 0;
-        for (int i = 0; i < count; ++i) if (!strcmp(dvar->current.string, values[i])) index = i;
-        Dvar_SetString(dvar, values[(index + step + count) % count]);
-    };
-    switch (selectedSetting)
-    {
-    case 0: Dvar_SetInt(backend, 1 - backend->current.integer); break;
-    case 1: adjust(sensitivity, 0.1f, 0.1f, 5.0f); break;
-    case 2: adjust(adsSensitivity, 0.05f, 0.25f, 2.0f); break;
-    case 3: Dvar_SetBool(invert, !invert->current.enabled); break;
-    case 4: adjust(inner, 0.01f, 0.0f, 0.4f); break;
-    case 5: adjust(outer, 0.01f, 0.0f, 0.2f); break;
-    case 6: adjust(triggerDeadzone, 0.01f, 0.01f, 0.5f); break;
-    case 7: cycle(buttonConfig, layouts); break;
-    case 8: cycle(stickConfig, sticks); break;
-    case 9: Dvar_SetInt(style, (style->current.integer + step + 3) % 3); break;
-    case 10: Dvar_SetBool(rumble, !rumble->current.enabled); break;
-    case 11:
-        if (const auto* fov = Dvar_FindVar("cg_fovScale"))
-            Dvar_SetFloat(fov, ClampFovScale(fov->current.value + step / 65.0f));
-        break;
-    }
-}
-
-void SettingsKey(int key)
-{
-    if (key == K_ESCAPE) SetSettings(false);
-    else if (key == K_UPARROW) selectedSetting = (selectedSetting + 11) % 12;
-    else if (key == K_DOWNARROW) selectedSetting = (selectedSetting + 1) % 12;
-    else if (key == K_LEFTARROW) ChangeSetting(-1);
-    else if (key == K_RIGHTARROW || key == K_ENTER) ChangeSetting(1);
-}
+void OpenSettings() { ReleaseAll(); controller_ui::Open(); }
 
 void PulseMenuKey(int key)
 {
-    if (settings) SettingsKey(key);
-    else { MenuKey(key, true); MenuKey(key, false); }
+    MenuKey(key, true); MenuKey(key, false);
 }
 
 void ButtonEvent(engine_key value, bool down)
@@ -221,17 +161,9 @@ void ButtonEvent(engine_key value, bool down)
     usedController = true;
     if (MenuContext())
     {
-        if (value == engine_key::button_y && !settings &&
-            !Key_IsCatcherActive(0, KEYCATCH_CONSOLE | KEYCATCH_MESSAGE)) { SetSettings(true); return; }
-        int uiKey = 0;
-        switch (value)
-        {
-        case engine_key::button_a: uiKey = K_ENTER; break;
-        case engine_key::button_b: case engine_key::button_start: uiKey = K_ESCAPE; break;
-        case engine_key::button_x: uiKey = K_F2; break;
-        case engine_key::button_back: uiKey = K_TAB; break;
-        default: return; // direction repeat is handled separately
-        }
+        if (Display_KeyBindPending() || controller_ui::HandlesKey(key)) { PulseMenuKey(key); return; }
+        const int uiKey=MenuKeyForButton(key);
+        if (!uiKey) return; // directional repeat is handled separately
         PulseMenuKey(uiKey);
         return;
     }
@@ -313,15 +245,23 @@ void Initialize()
     present = Dvar_RegisterBool("gpad_present", false, DVAR_ROM, "A controller is connected");
     inputUsed = Dvar_RegisterBool("gpad_in_use", false, DVAR_ROM, "Last menu input was a controller");
     style = Dvar_RegisterInt("gpad_style", 0, 0, 2, DVAR_ARCHIVE, "Glyphs: 0 automatic, 1 PlayStation, 2 Xbox");
-    sensitivity = Dvar_RegisterFloat("input_viewSensitivity", 1.0f, 0.1f, 5.0f, DVAR_ARCHIVE, "Controller sensitivity");
+    sensitivity = Dvar_RegisterFloat("input_viewSensitivity", 1.0f, 0.0001f, 5.0f, DVAR_ARCHIVE, "Controller sensitivity");
     adsSensitivity = Dvar_RegisterFloat("gpad_adsSensitivity", 1.0f, 0.25f, 2.0f, DVAR_ARCHIVE, "Controller ADS multiplier");
     invert = Dvar_RegisterBool("input_invertPitch", false, DVAR_ARCHIVE, "Invert controller vertical look");
-    inner = Dvar_RegisterFloat("gpad_stick_deadzone_min", 0.2f, 0.0f, 0.4f, DVAR_ARCHIVE, "Inner stick deadzone");
-    outer = Dvar_RegisterFloat("gpad_stick_deadzone_max", 0.01f, 0.0f, 0.2f, DVAR_ARCHIVE, "Outer stick deadzone");
-    triggerDeadzone = Dvar_RegisterFloat("gpad_button_deadzone", 0.13f, 0.01f, 0.5f, DVAR_ARCHIVE, "Trigger threshold");
+    inner = Dvar_RegisterFloat("gpad_stick_deadzone_min", 0.2f, 0.0f, 0.9f, DVAR_ARCHIVE, "Inner stick deadzone");
+    outer = Dvar_RegisterFloat("gpad_stick_deadzone_max", 0.01f, 0.0f, 0.5f, DVAR_ARCHIVE, "Outer stick deadzone");
+    triggerDeadzone = Dvar_RegisterFloat("gpad_button_deadzone", 0.13f, 0.0f, 0.9f, DVAR_ARCHIVE, "Trigger threshold");
     buttonConfig = Dvar_RegisterString("gpad_buttonConfig", "buttons_default", DVAR_ARCHIVE, "Controller button layout");
     stickConfig = Dvar_RegisterString("gpad_sticksConfig", "thumbstick_default", DVAR_ARCHIVE, "Controller stick layout");
     rumble = Dvar_RegisterBool("gpad_rumble", true, DVAR_ARCHIVE, "Controller vibration");
+    antiDeadzone = Dvar_RegisterFloat("gpad_stick_anti_deadzone", 0, 0, .9f, DVAR_ARCHIVE, "Stick anti-deadzone");
+    triggerHysteresis = Dvar_RegisterFloat("gpad_button_deadzone_hysteresis", .05f, 0, .5f, DVAR_ARCHIVE, "Trigger release hysteresis");
+    stickPressed = Dvar_RegisterFloat("gpad_stick_pressed", .4f, .05f, 1, DVAR_ARCHIVE, "Menu stick threshold");
+    stickHysteresis = Dvar_RegisterFloat("gpad_stick_pressed_hysteresis", .1f, 0, .5f, DVAR_ARCHIVE, "Menu stick hysteresis");
+    scrollFirst = Dvar_RegisterInt("gpad_menu_scroll_delay_first", 420, 0, 1000, DVAR_ARCHIVE, "First menu repeat delay");
+    scrollRest = Dvar_RegisterInt("gpad_menu_scroll_delay_rest", 210, 0, 1000, DVAR_ARCHIVE, "Menu repeat delay");
+    scrollMin = Dvar_RegisterInt("gpad_menu_scroll_delay_min", 50, 0, 1000, DVAR_ARCHIVE, "Fastest menu repeat delay");
+    scrollAcceleration = Dvar_RegisterInt("gpad_menu_scroll_accel_time", 1500, 0, 5000, DVAR_ARCHIVE, "Menu scroll acceleration time");
     Cmd_AddCommandInternal("controller_settings", OpenSettings, &settingsCommand);
     ready = true;
 }
@@ -335,6 +275,7 @@ void Shutdown()
     active = {};
     connected = false;
     disconnectPrompt = false;
+    focused = false;
     mode = -1;
     ready = false;
     Cmd_RemoveCommand("controller_settings");
@@ -345,8 +286,9 @@ bool GameplayContext()
     return ready && focused && !MenuContext() && !CL_GetLocalClientConnection(0)->demoplaying;
 }
 bool InUse() { return ready && inUse; }
+bool HasFocus() { return ready && focused; }
 bool NavigatingMenu() { return navigating; }
-bool MenuOpen() { return settings; }
+bool MenuOpen() { return controller_ui::IsOpen(); }
 float Sensitivity() { return sensitivity ? sensitivity->current.value : 1.0f; }
 float AdsSensitivity() { return adsSensitivity ? adsSensitivity->current.value : 1.0f; }
 bool InvertPitch() { return invert && invert->current.enabled; }
@@ -354,18 +296,20 @@ bool InvertPitch() { return invert && invert->current.enabled; }
 bool FilterKey(int localClient, int key, bool down)
 {
     if (!ready || injecting || key < 0 || key >= 256) return false;
+    if (!focused)
+    {
+        // Focus-loss releases may still clear accepted native key state, but
+        // background key-down messages cannot become a future gameplay attempt.
+        heldKeyboard[key] = false;
+        return down || !playerKeys[localClient].keys[key].down;
+    }
     heldKeyboard[key] = down;
     if (down) SetInUse(false);
     // Only pass a release to KeyState if its matching down reached KeyState.
     // This clears held chat/menu keys without decrementing unrelated keys when
     // a blocked gameplay key is released.
     if (!down) return !playerKeys[localClient].keys[key].down;
-    if (settings)
-    {
-        if (down) SettingsKey(key);
-        return down;
-    }
-    if (down && MenuContext() && key == K_F7) { SetSettings(true); return true; }
+    if (down && MenuContext() && key == K_F7) { OpenSettings(); return true; }
     if (GameplayContext() && PhysicalGameplayKey(key))
     {
         pendingKeyboard |= down;
@@ -393,25 +337,35 @@ bool AllowCommand(const char* name)
 bool FilterMouse(int dx, int dy)
 {
     if (!ready) return false;
+    if (!focused) return true;
     if (PreserveMenuFocus(inUse, MenuContext(), dx, dy)) return true;
     if (dx || dy)
     {
         SetInUse(false);
         if (GameplayContext()) pendingMouse = true;
     }
-    return settings || GameplayContext();
+    return GameplayContext();
+}
+
+void ClearBackgroundInput()
+{
+    axes = {};
+    usedController = false;
+    previousGameplay = false;
+    heldKeyboard.fill(false);
+    pendingMouse = pendingKeyboard = false;
 }
 
 void PollFrame(bool hasFocus)
 {
     if (!ready || !cls.uiStarted) return;
+    const bool resumed = hasFocus && !focused;
+    const bool lostFocus = !hasFocus && focused;
     focused = hasFocus;
     if (!focused)
     {
-        ReleaseAll();
-        heldKeyboard.fill(false);
-        pendingMouse = pendingKeyboard = false;
-        return;
+        if (lostFocus) ReleaseAll();
+        ClearBackgroundInput();
     }
     ApplyLayout();
     if (mode != backend->current.integer)
@@ -454,27 +408,35 @@ void PollFrame(bool hasFocus)
         fresh = true;
     });
     const bool wasConnected = connected;
-    connected = selected.has_value() && (fresh || (lastSample && now - lastSample < 250));
+    const auto availability = Availability(focused, selected.has_value(), fresh, lastSample, now);
+    connected = availability.present;
+    Dvar_SetBool(present, connected);
+    UpdateDisconnectPrompt();
     // HID reports arrive continuously; XInput poll was adapted to publish idle
     // samples too. A stale stream never keeps a stuck trigger or approval alive.
     if (!connected)
     {
         if (wasConnected) ReleaseAll();
-        Dvar_SetBool(present, false);
         return;
     }
-    Dvar_SetBool(present, true);
-    const aim::deadzone_params deadzone{{inner->current.value}, {outer->current.value}, {0.0f}};
+    // Discovery, reconciliation and samples above keep running on blur. Only
+    // physical presence reaches commands; no button/axis/menu dispatch follows.
+    if (!availability.dispatchInput) return;
+    const float safeOuter = std::min(outer->current.value, .99f - inner->current.value);
+    const aim::deadzone_params deadzone{{inner->current.value}, {safeOuter}, {antiDeadzone->current.value}};
     const auto left = aim::apply(deadzone, sample.sticks[0].calibrated);
     const auto right = aim::apply(deadzone, sample.sticks[1].calibrated);
     axes = mapping::resolve(mapping::stick_layout_from_name(stickConfig->current.string), left, right);
     button_set buttons = sample.buttons;
     for (int i = 0; i < 2; ++i)
     {
-        const float threshold = triggerDeadzone->current.value - (triggers[i] ? 0.05f : 0.0f);
+        const float threshold = triggerDeadzone->current.value - (triggers[i] ? triggerHysteresis->current.value : 0.0f);
         triggers[i] = sample.triggers[i].normalized > std::max(0.001f, threshold);
         buttons.set(i ? button::r2 : button::l2, triggers[i]);
     }
+    // A button pressed while another application had focus needs a new press
+    // after returning; it must not select a menu item or resume firing.
+    if (resumed) previousButtons = buttons;
     if (left.x || left.y || right.x || right.y || buttons.any())
     {
         SetInUse(true);
@@ -501,19 +463,25 @@ void PollFrame(bool hasFocus)
 
     if (MenuContext())
     {
-        const bool directions[]{buttons.down(button::dpad_up) || left.y > .5f,
-            buttons.down(button::dpad_down) || left.y < -.5f,
-            buttons.down(button::dpad_left) || left.x < -.5f,
-            buttons.down(button::dpad_right) || left.x > .5f};
+        const float values[]{std::max(left.y,right.y), std::max(-left.y,-right.y),
+            std::max(-left.x,-right.x), std::max(left.x,right.x)};
+        constexpr button dpad[]{button::dpad_up,button::dpad_down,button::dpad_left,button::dpad_right};
         constexpr int uiKeys[]{K_UPARROW, K_DOWNARROW, K_LEFTARROW, K_RIGHTARROW};
         for (int i = 0; i < 4; ++i)
         {
-            if (directions[i] && (!previousDirections[i] || static_cast<int>(now - repeatAt[i]) >= 0))
+            const float threshold=std::max(.01f,stickPressed->current.value+(previousDirections[i]?-stickHysteresis->current.value:stickHysteresis->current.value));
+            const bool down=buttons.down(dpad[i]) || values[i]>threshold;
+            if (down && (!previousDirections[i] || static_cast<int>(now-repeatAt[i])>=0))
             {
-                PulseMenuKey(uiKeys[i]);
-                repeatAt[i] = now + (previousDirections[i] ? 160 : 420);
+                const float leftValues[]{left.y,-left.y,-left.x,left.x};
+                const int physical=buttons.down(dpad[i])?20+i:leftValues[i]>threshold?28+i:224+i;
+                PulseMenuKey(controller_ui::HandlesKey(physical) || (Display_KeyBindPending() && buttons.down(dpad[i])) ? physical : uiKeys[i]);
+                if (!previousDirections[i]) repeatStarted[i]=now;
+                const float progress=scrollAcceleration->current.integer>0 ? std::min(1.0f,float(now-repeatStarted[i])/scrollAcceleration->current.integer) : 1.0f;
+                const int repeat=static_cast<int>(scrollRest->current.integer+(scrollMin->current.integer-scrollRest->current.integer)*progress);
+                repeatAt[i]=now+std::max(1,previousDirections[i]?repeat:scrollFirst->current.integer);
             }
-            previousDirections[i] = directions[i];
+            previousDirections[i]=down;
         }
     }
     driver::output_policy output;
@@ -531,7 +499,13 @@ void Frame(bool hasFocus)
 {
     static unsigned retryAfter = 0;
     const unsigned now = Sys_Milliseconds();
-    if (retryAfter && static_cast<int>(now - retryAfter) < 0) return;
+    if (retryAfter && static_cast<int>(now - retryAfter) < 0)
+    {
+        // A device failure already released actions and cleared presence. Focus
+        // changes must still gate keyboard/mouse events during the retry delay.
+        if (!hasFocus) { focused = false; ClearBackgroundInput(); }
+        return;
+    }
     try
     {
         PollFrame(hasFocus);
@@ -606,7 +580,7 @@ void Move(int localClient, usercmd_s& command)
 
 void LocationMove(int, float& x, float& y, float dt, float aspect)
 {
-    if (!connected || KeyboardAttempt()) return;
+    if (!connected || !focused || KeyboardAttempt()) return;
     x = std::clamp(x + axes.yaw * dt * 0.6f, 0.0f, 1.0f);
     y = std::clamp(y - axes.pitch * dt * 0.6f * aspect, 0.0f, 1.0f);
 }
@@ -616,28 +590,11 @@ const char* KeyName(int key, bool display)
     const auto mapped = mapping::key_from_keynum(key);
     if (!mapped) return nullptr;
     if (!display) return mapping::key_name(*mapped);
-    const bool ps = style && (style->current.integer == 1 || (style->current.integer == 0 &&
-        activeFamily != family::xbox && activeFamily != family::unknown));
-    switch (*mapped)
-    {
-    case engine_key::button_a: return ps ? "[Cross]" : "[A]";
-    case engine_key::button_b: return ps ? "[Circle]" : "[B]";
-    case engine_key::button_x: return ps ? "[Square]" : "[X]";
-    case engine_key::button_y: return ps ? "[Triangle]" : "[Y]";
-    case engine_key::button_ltrig: return ps ? "[L2]" : "[LT]";
-    case engine_key::button_rtrig: return ps ? "[R2]" : "[RT]";
-    case engine_key::button_lshldr: return ps ? "[L1]" : "[LB]";
-    case engine_key::button_rshldr: return ps ? "[R1]" : "[RB]";
-    case engine_key::button_lstick: return ps ? "[L3]" : "[LS]";
-    case engine_key::button_rstick: return ps ? "[R3]" : "[RS]";
-    case engine_key::button_start: return "[Menu]";
-    case engine_key::button_back: return "[View]";
-    case engine_key::dpad_up: return "[D-pad Up]";
-    case engine_key::dpad_down: return "[D-pad Down]";
-    case engine_key::dpad_left: return "[D-pad Left]";
-    case engine_key::dpad_right: return "[D-pad Right]";
-    default: return mapping::key_name(*mapped);
-    }
+    std::optional<mapping::glyph_family> override;
+    if(style && style->current.integer==1) override=mapping::glyph_family::playstation;
+    else if(style && style->current.integer==2) override=mapping::glyph_family::xbox;
+    const auto* glyph=mapping::glyph_for(*mapped,mapping::glyph_family_for(activeFamily,override));
+    return glyph?controller_glyph::Encode(glyph):mapping::key_name(*mapped);
 }
 
 int CommandKeys(const char* command, int* keys)
@@ -678,42 +635,6 @@ void Draw()
         text(message, compact ? 65.0f : 108.0f, compact ? 442.0f : 185.0f,
             compact ? .20f : .28f, gold);
     };
-    if (settings)
-    {
-        const float background[]{.035f, .045f, .035f, .98f};
-        UI_FillRect(placement, 40, 25, 560, 425, 0, 0, background);
-        text("COD4-LIVE / CONTROLLER", 65, 58, .32f, gold);
-        char lines[12][180]{};
-        sprintf_s(lines[0], "Input: %s", backend->current.integer ? "Steam Input (Gamepad template)" : "Native Xbox / PlayStation");
-        sprintf_s(lines[1], "Look sensitivity: %.1f", Sensitivity());
-        sprintf_s(lines[2], "ADS sensitivity: %.2f", AdsSensitivity());
-        sprintf_s(lines[3], "Invert look: %s", InvertPitch() ? "Yes" : "No");
-        sprintf_s(lines[4], "Inner deadzone: %.2f", inner->current.value);
-        sprintf_s(lines[5], "Outer deadzone: %.2f", outer->current.value);
-        sprintf_s(lines[6], "Trigger threshold: %.2f", triggerDeadzone->current.value);
-        sprintf_s(lines[7], "Buttons: %s", SettingLabel(buttonConfig->current.string, layouts, layoutLabels));
-        sprintf_s(lines[8], "Sticks: %s", SettingLabel(stickConfig->current.string, sticks, stickLabels));
-        sprintf_s(lines[9], "Button prompts: %s", style->current.integer == 1 ? "PlayStation" : style->current.integer == 2 ? "Xbox" : "Automatic");
-        sprintf_s(lines[10], "Vibration: %s", rumble->current.enabled ? "On" : "Off");
-        const auto* fov = Dvar_FindVar("cg_fovScale");
-        sprintf_s(lines[11], "Field of view: %.0f (65 - 90)", 65.0f * (fov ? ClampFovScale(fov->current.value) : 1.0f));
-        for (int i = 0; i < 12; ++i)
-        {
-            if (i == selectedSetting) text(">", 56, 91 + i * 23.0f, .24f, gold);
-            text(lines[i], 76, 91 + i * 23.0f, .24f, i == selectedSetting ? gold : white);
-        }
-        text("D-pad: select / adjust     B or Circle: back", 65, 395, .22f, gold);
-        text("Steam Input must output gamepad controls, not mouse or keyboard.", 65, 419, .18f, white);
-        drawConnectionPrompt(true);
-        return;
-    }
-    if (MenuContext() && !Key_IsCatcherActive(0, KEYCATCH_CONSOLE | KEYCATCH_MESSAGE))
-    {
-        char hint[180];
-        sprintf_s(hint, "%s Select   %s Back   %s Controller settings / F7",
-            KeyName(1, true), KeyName(2, true), KeyName(4, true));
-        text(hint, 30, 465, .22f, gold);
-    }
     drawConnectionPrompt(false);
     if (CL_GetLocalClientConnectionState(0) == CA_ACTIVE && connected &&
         lastWarning && Sys_Milliseconds() - lastWarning < 1500)

@@ -25,6 +25,9 @@
 #include <win32/win_input.h>
 #include <universal/timing.h>
 #include <universal/profile.h>
+#ifdef COD4_LIVE_CONTROLLER
+#include <live/controller_menu.h>
+#endif
 
 enum sscType_t : __int32
 {                                       // ...
@@ -1099,6 +1102,9 @@ void __cdecl UI_Refresh(int localClientNum)
             localClientNum);
     if (Menu_Count(&uiInfoArray.uiDC) > 0)
     {
+#ifdef COD4_LIVE_CONTROLLER
+        live::controller_ui::Refresh(&uiInfoArray.uiDC);
+#endif
         Menu_PaintAll(&uiInfoArray.uiDC);
         UI_DoServerRefresh(&uiInfoArray);
         UI_BuildServerStatus(&uiInfoArray, 0);
@@ -1172,6 +1178,9 @@ void __cdecl UI_Shutdown(int localClientNum)
             localClientNum);
     Menus_CloseAll(&uiInfoArray.uiDC);
     sharedUiInfo.assets.whiteMaterial = 0;
+#ifdef COD4_LIVE_CONTROLLER
+    live::controller_ui::BeforeInitialize();
+#endif
     UILocalVar_Shutdown(&uiInfoArray.uiDC.localVars);
     if (!IsFastFileLoad())
         Menus_FreeAllMemory(&uiInfoArray.uiDC);
@@ -4653,6 +4662,9 @@ void __cdecl UI_Init(int localClientNum)
             "(localClientNum == 0)",
             localClientNum);
     uiInfoArray.uiDC.localClientNum = localClientNum;
+#ifdef COD4_LIVE_CONTROLLER
+    live::controller_ui::BeforeInitialize();
+#endif
     g_ingameMenusLoaded[localClientNum] = 0;
     if (IsFastFileLoad())
         DB_ResetZoneSize(0);
@@ -4695,6 +4707,9 @@ void __cdecl UI_Init(int localClientNum)
         UI_MapLoadInfo(va("maps/mp/%s.csv", g_mapname));
     }
     UI_AssetCache();
+#ifdef COD4_LIVE_CONTROLLER
+    live::controller_ui::Initialize(&uiInfoArray.uiDC);
+#endif
     Menus_CloseAll(&uiInfoArray.uiDC);
     sharedUiInfo.serverHardwareIconList[0] = Material_RegisterHandle("server_hardware_unknown", IMAGE_TRACK_UI);
     sharedUiInfo.serverHardwareIconList[1] = Material_RegisterHandle("server_hardware_linux_dedicated", IMAGE_TRACK_UI);

@@ -17,7 +17,10 @@ list(APPEND LIVE_CONTROLLER_VENDOR
     "${LIVE_CONTROLLER_DIR}/iw4x/Calibration/Profile.cpp")
 target_sources(KisakCOD-mp PRIVATE ${LIVE_CONTROLLER_VENDOR}
     "${LIVE_CONTROLLER_DIR}/controller.cpp"
-    "${LIVE_CONTROLLER_DIR}/controller_aim.cpp")
+    "${LIVE_CONTROLLER_DIR}/controller_aim.cpp"
+    "${LIVE_CONTROLLER_DIR}/controller_menu.cpp"
+    "${LIVE_CONTROLLER_DIR}/controller_glyph.cpp"
+    "${LIVE_CONTROLLER_DIR}/bot_menu.cpp")
 target_compile_definitions(KisakCOD-mp PRIVATE COD4_LIVE_CONTROLLER=1 NOMINMAX)
 target_link_libraries(KisakCOD-mp PRIVATE hid setupapi cfgmgr32 ole32 avrt)
 
@@ -38,6 +41,10 @@ if(BUILD_TESTING)
         "${LIVE_CONTROLLER_DIR}/iw4x/Aim/Graph.cpp"
         "${LIVE_CONTROLLER_DIR}/iw4x/Aim/Integrator.cpp"
         "${LIVE_CONTROLLER_DIR}/iw4x/Mapping/StickLayout.cpp"
+        "${LIVE_CONTROLLER_DIR}/iw4x/Mapping/Binding.cpp"
+        "${LIVE_CONTROLLER_DIR}/iw4x/Mapping/Logical.cpp"
+        "${LIVE_CONTROLLER_DIR}/iw4x/Mapping/Key.cpp"
+        "${LIVE_CONTROLLER_DIR}/iw4x/Mapping/Glyph.cpp"
         "${LIVE_CONTROLLER_DIR}/iw4x/Sample/Axis.cpp")
     target_compile_features(controller-math-tests PRIVATE cxx_std_20)
     target_include_directories(controller-math-tests PRIVATE "${LIVE_CONTROLLER_DIR}/..")

@@ -1,8 +1,33 @@
 #pragma once
 #include <string_view>
+#include <ui/keycodes.h>
 
 namespace live::controller
 {
+struct DeviceAvailability
+{
+    bool present;
+    bool dispatchInput;
+};
+// Presence is hardware freshness, independent of window focus. This lets an
+// alt-tabbed client report unplug/stale-device state without emitting controls.
+constexpr DeviceAvailability Availability(bool focused, bool selected, bool fresh,
+    unsigned lastSample, unsigned now)
+{
+    const bool present = selected && (fresh || (lastSample && now - lastSample < 250));
+    return {present, present && focused};
+}
+// IW4x Engine/Key.cpp menu mapping, expressed with CoD4 keyboard codes.
+constexpr int MenuKeyForButton(int key)
+{
+    switch(key) {
+    case 1: case 14: return K_ENTER;
+    case 2: case 15: return K_ESCAPE;
+    case 3: return K_F2;
+    case 4: return K_F1;
+    default: return 0;
+    }
+}
 // The legacy mouse poll emits an event even when the cursor did not move.
 // Routing that event into UI hover clears controller-selected item focus.
 constexpr bool PreserveMenuFocus(bool controllerInUse, bool menu, int dx, int dy)

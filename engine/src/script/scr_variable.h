@@ -68,15 +68,29 @@ enum scr_classnum_t
 
 #define MAX_ARRAYINDEX 0x800000
 
+// MP Bot Warfare needs more than the original 65K child variables at 63 bots.
+// Parent IDs remain 16-bit (thread stacks/string-key encoding); child links do not.
+#ifdef KISAK_MP
+#define VARIABLELIST_CHILD_SIZE 0x3FFFE
+#define VARIABLELIST_PARENT_SIZE 0xFFFE
+using VariableLink = uint32_t;
+#else
+// Preserve the SP save-game layout and its compact serialized indices.
 #define VARIABLELIST_CHILD_SIZE 0xFFFE
-#define VARIABLELIST_CHILD_BEGIN 0x8002 // 32770 // XBOX(0x6000) // 
-#define VARIABLELIST_PARENT_BEGIN 1
 #define VARIABLELIST_PARENT_SIZE 0x8000
+using VariableLink = uint16_t;
+#endif
+#define VARIABLELIST_PARENT_BEGIN 1
+#define VARIABLELIST_CHILD_BEGIN (VARIABLELIST_PARENT_SIZE + 2)
+#define VARIABLELIST_TOTAL_SIZE (VARIABLELIST_CHILD_BEGIN + VARIABLELIST_CHILD_SIZE)
+#define SCRIPT_VARIABLE_EMERGENCY_RESERVE 3200
 
 #define VAR_NAME_HIGH_MASK 0xFFFFFF00
 
-#define OBJECT_NOTIFY_LIST 0x18000
-#define OBJECT_STACK 0x18001
+// Object array keys occupy [0x10000, 0x10000 + PARENT_SIZE). Internal
+// notify/stack fields must stay above that range and below integer array keys.
+#define OBJECT_NOTIFY_LIST (0x10000 + VARIABLELIST_PARENT_SIZE)
+#define OBJECT_STACK (OBJECT_NOTIFY_LIST + 1)
 
 #define FIRST_OBJECT 15
 #define FIRST_CLEARABLE_OBJECT 0x12
@@ -156,17 +170,17 @@ static_assert(sizeof(ObjectInfo) == 0x4);
 
 union Variable_u // sizeof=0x2
 {                                       // ...
-    uint16_t prev;
-    uint16_t prevSibling;
+    VariableLink prev;
+    VariableLink prevSibling;
 };
-static_assert(sizeof(Variable_u) == 0x2);
+static_assert(sizeof(Variable_u) == sizeof(VariableLink));
 
 struct Variable // sizeof=0x4
 {                                       // ...
-    uint16_t id;                // ...
+    VariableLink id;            // ...
     Variable_u u;                       // ...
 };
-static_assert(sizeof(Variable) == 0x4);
+static_assert(sizeof(Variable) == 2 * sizeof(VariableLink));
 
 union VariableValueInternal_u // sizeof=0x4
 {                                       // ...
@@ -183,7 +197,8 @@ union VariableValueInternal_u // sizeof=0x4
         u.intValue = 0;
     }
 
-    uint16_t next;
+    uint16_t next; // Active-parent refCount alias; upper 16 bits contain self/size/entnum.
+    VariableLink freeNext; // Free-list links can address the expanded child pool.
     VariableUnion u;
     ObjectInfo o;
 };
@@ -203,10 +218,10 @@ static_assert(sizeof(VariableValueInternal_w) == 0x4);
 
 union VariableValueInternal_v // sizeof=0x2
 {                                       // ...
-    uint16_t next;
-    uint16_t index;
+    VariableLink next;
+    VariableLink index;
 };
-static_assert(sizeof(VariableValueInternal_v) == 0x2);
+static_assert(sizeof(VariableValueInternal_v) == sizeof(VariableLink));
 
 struct VariableValueInternal // sizeof=0x10
 {                                       // ...
@@ -214,28 +229,28 @@ struct VariableValueInternal // sizeof=0x10
     VariableValueInternal_u u;          // ...
     VariableValueInternal_w w;          // ...
     VariableValueInternal_v v;          // ...
-    uint16_t nextSibling;       // ...
+    VariableLink nextSibling;       // ...
 };
-static_assert(sizeof(VariableValueInternal) == 0x10);
+static_assert(sizeof(VariableValueInternal) == 8 + 4 * sizeof(VariableLink));
 
 struct scrVarDebugPub_t // sizeof=0xE0004
 {                                       // ...
-    const char* varUsage[0x18000];
-    uint16_t extRefCount[0x8000];
-    uint16_t refCount[0x8000];
-    int leakCount[0x18000];
+    const char* varUsage[VARIABLELIST_TOTAL_SIZE];
+    uint16_t extRefCount[VARIABLELIST_PARENT_SIZE];
+    uint16_t refCount[VARIABLELIST_PARENT_SIZE];
+    int leakCount[VARIABLELIST_TOTAL_SIZE];
     bool dummy;
     // padding byte
     // padding byte
     // padding byte
 };
-static_assert(sizeof(scrVarDebugPub_t) == 0xE0004);
+static_assert(sizeof(scrVarDebugPub_t) == 8 * VARIABLELIST_TOTAL_SIZE + 4 * VARIABLELIST_PARENT_SIZE + 4);
 
 struct scrVarGlob_t // sizeof=0x180000
 {                                       // ...
-    VariableValueInternal variableList[0x18000]; // ...
+    VariableValueInternal variableList[VARIABLELIST_TOTAL_SIZE]; // ...
 };
-static_assert(sizeof(scrVarGlob_t) == 0x180000);
+static_assert(sizeof(scrVarGlob_t) == sizeof(VariableValueInternal) * VARIABLELIST_TOTAL_SIZE);
 
 struct scr_entref_t // sizeof=0x4
 {                                       // ...

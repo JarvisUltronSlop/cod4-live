@@ -1,3 +1,6 @@
+#ifdef COD4_LIVE_CONTROLLER
+#include <live/controller_glyph.h>
+#endif
 #include <universal/q_shared.h>
 #include "r_init.h"
 #include <shellapi.h>
@@ -2857,6 +2860,9 @@ void __cdecl R_Shutdown(int destroyWindow)
     if (rg.registered)
     {
         R_SyncRenderThread();
+#ifdef COD4_LIVE_CONTROLLER
+        live::controller_glyph::Shutdown();
+#endif
         rg.registered = 0;
         iassert(r_glob.haveThreadOwnership);
         r_glob.startedRenderThread = 0;

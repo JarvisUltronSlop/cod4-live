@@ -98,10 +98,10 @@ void Scr_InitVariables()
 	scrVarPub.numScriptObjects = 0;
 
 	if (scrVarDebugPub)
-		memset(scrVarDebugPub, 0, 0x60000u);
+		memset(scrVarDebugPub->varUsage, 0, sizeof(scrVarDebugPub->varUsage));
 
 	Scr_InitVariableRange(VARIABLELIST_PARENT_BEGIN, VARIABLELIST_PARENT_SIZE + 1);
-	Scr_InitVariableRange(VARIABLELIST_CHILD_BEGIN, 0x18000u);
+	Scr_InitVariableRange(VARIABLELIST_CHILD_BEGIN, VARIABLELIST_TOTAL_SIZE);
 }
 
 void Scr_InitVariableRange(uint32_t begin, uint32_t end)
@@ -119,7 +119,7 @@ void Scr_InitVariableRange(uint32_t begin, uint32_t end)
 
 		value->hash.id = index - begin;
 		value->v.next = index - begin;
-		value->u.next = index - begin + 1;
+		value->u.freeNext = index - begin + 1;
 		value->hash.u.prev = index - begin - 1;
 	}
 
@@ -131,10 +131,10 @@ void Scr_InitVariableRange(uint32_t begin, uint32_t end)
 	valuea->w.status = valuea->w.status;
 	valuea->hash.id = 0;
 	valuea->v.next = 0;
-	valuea->u.next = 1;
+	valuea->u.freeNext = 1;
 	scrVarGlob.variableList[begin + VARIABLELIST_PARENT_BEGIN].hash.u.prev = 0;
 	valuea->hash.u.prev = end - begin - 1;
-	scrVarGlob.variableList[end - 1].u.next = 0;
+	scrVarGlob.variableList[end - 1].u.freeNext = 0;
 }
 
 void Scr_InitClassMap()
@@ -260,21 +260,21 @@ uint32_t  GetStartLocalId(uint32_t threadId)
 uint32_t  AllocValue(void)
 {
 	VariableValueInternal* entry; // [esp+0h] [ebp-14h]
-	uint16_t newIndex; // [esp+4h] [ebp-10h]
-	uint16_t next; // [esp+8h] [ebp-Ch]
+	VariableLink newIndex; // [esp+4h] [ebp-10h]
+	VariableLink next; // [esp+8h] [ebp-Ch]
 	VariableValueInternal* entryValue; // [esp+Ch] [ebp-8h]
-	uint16_t index; // [esp+10h] [ebp-4h]
+	VariableLink index; // [esp+10h] [ebp-4h]
 
-	index = scrVarGlob.variableList[VARIABLELIST_CHILD_BEGIN].u.next;
+	index = scrVarGlob.variableList[VARIABLELIST_CHILD_BEGIN].u.freeNext;
 
-	if (!scrVarGlob.variableList[VARIABLELIST_CHILD_BEGIN].u.next)
+	if (!scrVarGlob.variableList[VARIABLELIST_CHILD_BEGIN].u.freeNext)
 		Scr_TerminalError("exceeded maximum number of script variables");
 
 	entry = &scrVarGlob.variableList[index + VARIABLELIST_CHILD_BEGIN];
 	entryValue = &scrVarGlob.variableList[entry->hash.id + VARIABLELIST_CHILD_BEGIN];
 	iassert((entryValue->w.status & VAR_STAT_MASK) == VAR_STAT_FREE);
 
-	next = entryValue->u.next;
+	next = entryValue->u.freeNext;
 	if (entry != entryValue && (entry->w.status & VAR_STAT_MASK) == 0)
 	{
 		newIndex = entry->v.next;
@@ -282,10 +282,10 @@ uint32_t  AllocValue(void)
 		scrVarGlob.variableList[newIndex + VARIABLELIST_CHILD_BEGIN].hash.id = entry->hash.id;
 		entry->hash.id = index;
 		entryValue->v.next = newIndex;
-		entryValue->u.next = entry->u.next;
+		entryValue->u.freeNext = entry->u.freeNext;
 		entryValue = &scrVarGlob.variableList[index + VARIABLELIST_CHILD_BEGIN];
 	}
-	scrVarGlob.variableList[VARIABLELIST_CHILD_BEGIN].u.next = next;
+	scrVarGlob.variableList[VARIABLELIST_CHILD_BEGIN].u.freeNext = next;
 	scrVarGlob.variableList[next + VARIABLELIST_CHILD_BEGIN].hash.u.prev = 0;
 	entryValue->v.next = index;
 	entryValue->nextSibling = 0;
@@ -409,6 +409,8 @@ uint32_t  Scr_GetSelf(uint32_t threadId)
 void  AddRefToObject(uint32_t id)
 {
 	iassert(id >= 1 && id < VARIABLELIST_PARENT_SIZE);
+	if (scrVarGlob.variableList[VARIABLELIST_PARENT_BEGIN + id].u.o.refCount == UINT16_MAX)
+		Scr_TerminalError("exceeded maximum reference count for script object");
 
 	++scrVarPub.totalObjectRefCount;
 
@@ -559,7 +561,13 @@ void  RemoveRefToValue(int type, VariableUnion u)
 
 bool  IsValidArrayIndex(uint32_t unsignedValue)
 {
-	return unsignedValue + 0x7E8000 <= 0xFE7FFF;
+	// Reserve the complete 16-bit object-key range in MP. Its upper half
+	// used to be available to negative integer keys before the larger parent pool.
+#ifdef KISAK_MP
+	return unsignedValue + 0x7E0000u <= 0xFDFFFFu;
+#else
+	return unsignedValue + 0x7E8000u <= 0xFE7FFFu;
+#endif
 }
 
 uint32_t  GetInternalVariableIndex(uint32_t unsignedValue)
@@ -592,7 +600,7 @@ struct VariableValue  Scr_GetArrayIndexValue(uint32_t name)
 
 	if (name >= SL_MAX_STRING_INDEX)
 	{
-		if (name >= 0x18000)
+		if (name >= OBJECT_NOTIFY_LIST)
 		{
 			value.type = VAR_INTEGER;
 			value.u.intValue = name - MAX_ARRAYINDEX;
@@ -1093,7 +1101,7 @@ uint32_t  Scr_FindAllThreads(uint32_t selfId, uint32_t* threads, uint32_t localI
 			*threads = localId;
 		count = 1;
 	}
-	for (id = 1; id < 0xFFFE; ++id)
+	for (id = 1; id < VARIABLELIST_CHILD_SIZE; ++id)
 	{
 		entryValue = &scrVarGlob.variableList[id + VARIABLELIST_CHILD_BEGIN];
 		if ((entryValue->w.status & VAR_STAT_MASK) != 0 && (entryValue->w.status & VAR_MASK) == VAR_STACK)
@@ -1112,7 +1120,7 @@ uint32_t  Scr_FindAllThreads(uint32_t selfId, uint32_t* threads, uint32_t localI
 			}
 		}
 	}
-	notifyListId = FindVariable(selfId, 0x18000u);
+	notifyListId = FindVariable(selfId, OBJECT_NOTIFY_LIST);
 	if (notifyListId)
 	{
 		Object = FindObject(notifyListId);
@@ -1210,11 +1218,11 @@ void  Scr_DumpScriptVariables(bool spreadsheet,
 	if (scrVarDebugPub
 		&& (scrVarPub.developer || !spreadsheet && !fileName && !functionName && !lineSort && !functionSummary && !minCount))
 	{
-		infoArray = (VariableDebugInfo*)Z_TryVirtualAlloc(1572864, "Scr_DumpScriptVariables", 0);
+		infoArray = (VariableDebugInfo*)Z_TryVirtualAlloc(sizeof(VariableDebugInfo) * VARIABLELIST_TOTAL_SIZE, "Scr_DumpScriptVariables", 0);
 		if (infoArray)
 		{
 			num = 0;
-			for (index = 0; index < 0x18000; ++index)
+			for (index = 0; index < VARIABLELIST_TOTAL_SIZE; ++index)
 			{
 				pos = scrVarDebugPub->varUsage[index];
 				if (pos)
@@ -1339,11 +1347,11 @@ uint32_t  GetVariableIndexInternal(uint32_t parentId, uint32_t name)
 	iassert((scrVarGlob.variableList[parentId + 1].w.status & VAR_STAT_MASK) == VAR_STAT_EXTERNAL);
 	iassert(IsObject(&scrVarGlob.variableList[parentId + 1]));
 
-	newIndex = FindVariableIndexInternal2(name, (parentId + FACTOR101 * name) % 0xFFFD + 1);
+	newIndex = FindVariableIndexInternal2(name, (parentId + FACTOR101 * name) % (VARIABLELIST_CHILD_SIZE - 1) + 1);
 	if (newIndex)
 		return newIndex;
 	else
-		return GetNewVariableIndexInternal2(parentId, name, (parentId + FACTOR101 * name) % 0xFFFD + 1);
+		return GetNewVariableIndexInternal2(parentId, name, (parentId + FACTOR101 * name) % (VARIABLELIST_CHILD_SIZE - 1) + 1);
 }
 
 void ClearObject(uint32_t parentId)
@@ -1381,7 +1389,7 @@ void  FreeValue(uint32_t id)
 {
 	VariableValueInternal* entry; // [esp+0h] [ebp-Ch]
 	VariableValueInternal* entryValue; // [esp+4h] [ebp-8h]
-	uint16_t index; // [esp+8h] [ebp-4h]
+	VariableLink index; // [esp+8h] [ebp-4h]
 
 	entryValue = &scrVarGlob.variableList[id + VARIABLELIST_CHILD_BEGIN];
 
@@ -1417,10 +1425,10 @@ void  FreeValue(uint32_t id)
 	iassert(!entryValue->nextSibling);
 
 	entryValue->w.status = 0;
-	entryValue->u.next = scrVarGlob.variableList[VARIABLELIST_CHILD_BEGIN].u.next;
+	entryValue->u.freeNext = scrVarGlob.variableList[VARIABLELIST_CHILD_BEGIN].u.freeNext;
 	entry->hash.u.prev = 0;
-	scrVarGlob.variableList[scrVarGlob.variableList[VARIABLELIST_CHILD_BEGIN].u.next + VARIABLELIST_CHILD_BEGIN].hash.u.prev = index;
-	scrVarGlob.variableList[VARIABLELIST_CHILD_BEGIN].u.next = index;
+	scrVarGlob.variableList[scrVarGlob.variableList[VARIABLELIST_CHILD_BEGIN].u.freeNext + VARIABLELIST_CHILD_BEGIN].hash.u.prev = index;
+	scrVarGlob.variableList[VARIABLELIST_CHILD_BEGIN].u.freeNext = index;
 }
 
 uint32_t GetArrayVariableIndex(uint32_t parentId, uint32_t unsignedValue)
@@ -1511,7 +1519,7 @@ uint32_t  Scr_FindAllVariableField(uint32_t parentId, uint32_t* names)
 		{
 			namea = scrVarGlob.variableList[ida + VARIABLELIST_CHILD_BEGIN].w.status >> 8;
 			iassert(namea);
-			if (namea != 98304 && namea != 98305)
+			if (namea != OBJECT_NOTIFY_LIST && namea != OBJECT_STACK)
 			{
 				iassert(namea <= scrVarPub.canonicalStrCount);
 				if (names)
@@ -2264,7 +2272,7 @@ void Scr_FreeObjects()
 	VariableValueInternal* entryValue; // [esp+0h] [ebp-8h]
 	uint32_t id; // [esp+4h] [ebp-4h]
 
-	for (id = 1; id < 0x8000; ++id)
+	for (id = 1; id < VARIABLELIST_PARENT_SIZE; ++id)
 	{
 		entryValue = &scrVarGlob.variableList[id + 1];
 		if ((entryValue->w.status & 0x60) != 0
@@ -2385,7 +2393,7 @@ void Scr_DumpScriptThreads(void)
 	float varUsage; // [esp+D8h] [ebp-4h]
 
 	num = 0;
-	for (id = 1; id < 0xFFFE; ++id)
+	for (id = 1; id < VARIABLELIST_CHILD_SIZE; ++id)
 	{
 		entryValue = &scrVarGlob.variableList[id + VARIABLELIST_CHILD_BEGIN];
 		if ((entryValue->w.status & VAR_STAT_MASK) != 0 && (entryValue->w.status & VAR_MASK) == VAR_STACK)
@@ -2397,7 +2405,7 @@ void Scr_DumpScriptThreads(void)
 		if (infoArray)
 		{
 			num = 0;
-			for (id = 1; id < 0xFFFE; ++id)
+			for (id = 1; id < VARIABLELIST_CHILD_SIZE; ++id)
 			{
 				entryValue = &scrVarGlob.variableList[id + VARIABLELIST_CHILD_BEGIN];
 				if ((entryValue->w.status & VAR_STAT_MASK) != 0 && (entryValue->w.status & VAR_MASK) == VAR_STACK)
@@ -3230,8 +3238,8 @@ void  Scr_CheckLeaks(void)
 
 	if (!scrStringDebugGlob || !scrStringDebugGlob->ignoreLeaks)
 	{
-		Scr_CheckLeakRange(1u, 0x8001u);
-		Scr_CheckLeakRange(VARIABLELIST_CHILD_BEGIN, 0x18000u);
+		Scr_CheckLeakRange(VARIABLELIST_PARENT_BEGIN, VARIABLELIST_PARENT_SIZE + 1);
+		Scr_CheckLeakRange(VARIABLELIST_CHILD_BEGIN, VARIABLELIST_TOTAL_SIZE);
 		iassert(!scrVarPub.totalObjectRefCount);
 		iassert(!scrVarPub.totalVectorRefCount);
 		iassert(!scrVarPub.ext_threadcount);
@@ -3239,7 +3247,7 @@ void  Scr_CheckLeaks(void)
 	if (scrVarDebugPub)
 	{
 		bLeak = 0;
-		for (id = 0; id < 0x18000; ++id)
+		for (id = 0; id < VARIABLELIST_TOTAL_SIZE; ++id)
 		{
 			if (scrVarDebugPub->leakCount[id])
 				bLeak = 1;
@@ -3247,7 +3255,7 @@ void  Scr_CheckLeaks(void)
 		if (bLeak)
 		{
 			Com_Printf(CON_CHANNEL_PARSERSCRIPT, "leak:\n");
-			for (ida = 0; ida < 0x18000; ++ida)
+			for (ida = 0; ida < VARIABLELIST_TOTAL_SIZE; ++ida)
 			{
 				if (scrVarDebugPub->leakCount[ida])
 					Com_Printf(CON_CHANNEL_PARSERSCRIPT, "%d, %d\n", ida, scrVarDebugPub->leakCount[ida]);
@@ -3319,7 +3327,7 @@ uint32_t  FindVariableIndexInternal2(uint32_t name, uint32_t index)
 	iassert(!(name & ~VAR_NAME_LOW_MASK));
 	bcassert(index, VARIABLELIST_CHILD_SIZE);
 	entry = &scrVarGlob.variableList[index + VARIABLELIST_CHILD_BEGIN];
-	iassert(entry->hash.id < 0xFFFEu);
+	iassert(entry->hash.id < VARIABLELIST_CHILD_SIZE);
 	entryValue = &scrVarGlob.variableList[entry->hash.id + VARIABLELIST_CHILD_BEGIN];
 	if ((entryValue->w.status & 0x60) == 0x40)
 	{
@@ -3349,7 +3357,7 @@ uint32_t FindVariableIndexInternal(uint32_t parentId, uint32_t name)
 	iassert((scrVarGlob.variableList[parentId + 1].w.status & VAR_STAT_MASK) == VAR_STAT_EXTERNAL);
 	iassert(IsObject(&scrVarGlob.variableList[parentId + 1]));
 
-	return FindVariableIndexInternal2(name, (parentId + FACTOR101 * name) % 0xFFFD + 1);
+	return FindVariableIndexInternal2(name, (parentId + FACTOR101 * name) % (VARIABLELIST_CHILD_SIZE - 1) + 1);
 }
 
 unsigned short  AllocVariable(void)
@@ -3360,15 +3368,15 @@ unsigned short  AllocVariable(void)
 	uint16_t index; // [esp+Ch] [ebp-8h]
 	VariableValueInternal* entryValue; // [esp+10h] [ebp-4h]
 
-	index = scrVarGlob.variableList[1].u.next;
+	index = scrVarGlob.variableList[1].u.freeNext;
 
-	if (!scrVarGlob.variableList[1].u.next)
+	if (!scrVarGlob.variableList[1].u.freeNext)
 		Scr_TerminalError("exceeded maximum number of script variables");
 
 	entry = &scrVarGlob.variableList[index + 1];
 	entryValue = &scrVarGlob.variableList[entry->hash.id + 1];
 	iassert((entryValue->w.status & VAR_STAT_MASK) == VAR_STAT_FREE);
-	next = entryValue->u.next;
+	next = entryValue->u.freeNext;
 	if (entry != entryValue && (entry->w.status & VAR_STAT_MASK) == VAR_STAT_FREE)
 	{
 		newIndex = entry->v.next;
@@ -3376,10 +3384,10 @@ unsigned short  AllocVariable(void)
 		scrVarGlob.variableList[newIndex + 1].hash.id = entry->hash.id;
 		entry->hash.id = index;
 		entryValue->v.next = newIndex;
-		entryValue->u.next = entry->u.next;
+		entryValue->u.freeNext = entry->u.freeNext;
 		entryValue = &scrVarGlob.variableList[index + 1];
 	}
-	scrVarGlob.variableList[1].u.next = next;
+	scrVarGlob.variableList[1].u.freeNext = next;
 	scrVarGlob.variableList[next + 1].hash.u.prev = 0;
 	entryValue->v.next = index;
 	entryValue->nextSibling = 0;
@@ -3439,10 +3447,10 @@ void  FreeVariable(uint32_t id)
 	iassert(!entry->hash.u.prev);
 	iassert(!entryValue->nextSibling);
 	entryValue->w.status = 0;
-	entryValue->u.next = scrVarGlob.variableList[1].u.next;
+	entryValue->u.freeNext = scrVarGlob.variableList[1].u.freeNext;
 	entry->hash.u.prev = 0;
-	scrVarGlob.variableList[scrVarGlob.variableList[1].u.next + 1].hash.u.prev = index;
-	scrVarGlob.variableList[1].u.next = index;
+	scrVarGlob.variableList[scrVarGlob.variableList[1].u.freeNext + 1].hash.u.prev = index;
+	scrVarGlob.variableList[1].u.freeNext = index;
 }
 
 uint32_t  AllocEntity(uint32_t classnum, unsigned short entnum)
@@ -3714,6 +3722,12 @@ void  Scr_AddFields_FastFile(char const* path, char const* extension)
 
 uint32_t  GetNewVariableIndexInternal3(uint32_t parentId, uint32_t name, uint32_t index)
 {
+	// Preserve the compact per-array size. The larger global child pool must
+	// not allow one array to wrap its size before allocation starts.
+	const auto& array = scrVarGlob.variableList[parentId + VARIABLELIST_PARENT_BEGIN];
+	if ((array.w.type & VAR_MASK) == VAR_ARRAY && array.u.o.u.size == UINT16_MAX)
+		Scr_TerminalError("exceeded maximum number of elements in script array");
+
 	VariableValueInternal* parentValue; // [esp+8h] [ebp-40h]
 	VariableValueInternal* entry; // [esp+Ch] [ebp-3Ch]
 	uint32_t newIndex; // [esp+10h] [ebp-38h]
@@ -3725,7 +3739,7 @@ uint32_t  GetNewVariableIndexInternal3(uint32_t parentId, uint32_t name, uint32_
 	int type; // [esp+34h] [ebp-14h]
 	VariableValueInternal* newEntry; // [esp+38h] [ebp-10h]
 	VariableValue value; // [esp+3Ch] [ebp-Ch]
-	uint16_t id; // [esp+44h] [ebp-4h]
+	VariableLink id; // [esp+44h] [ebp-4h]
 	uint32_t prevSiblingIndex;
 	uint32_t nextSiblingIndex;
 
@@ -3739,7 +3753,7 @@ uint32_t  GetNewVariableIndexInternal3(uint32_t parentId, uint32_t name, uint32_
 		{
 			if ((entry->w.status & VAR_STAT_MASK) != 0)
 			{
-				index = scrVarGlob.variableList[VARIABLELIST_CHILD_BEGIN].u.next;
+				index = scrVarGlob.variableList[VARIABLELIST_CHILD_BEGIN].u.freeNext;
 
 				if (!index)
 					Scr_TerminalError("exceeded maximum number of script variables");
@@ -3751,8 +3765,8 @@ uint32_t  GetNewVariableIndexInternal3(uint32_t parentId, uint32_t name, uint32_
 
 				iassert((newEntryValue->w.status & VAR_STAT_MASK) == VAR_STAT_FREE);
 
-				next = newEntryValue->u.next;
-				scrVarGlob.variableList[VARIABLELIST_CHILD_BEGIN].u.next = next;
+				next = newEntryValue->u.freeNext;
+				scrVarGlob.variableList[VARIABLELIST_CHILD_BEGIN].u.freeNext = next;
 				scrVarGlob.variableList[next + VARIABLELIST_CHILD_BEGIN].hash.u.prev = 0;
 				newEntryValue->w.status = 32;
 				newEntryValue->v.next = entryValue->v.next;
@@ -3764,8 +3778,8 @@ uint32_t  GetNewVariableIndexInternal3(uint32_t parentId, uint32_t name, uint32_
 				newEntry = &scrVarGlob.variableList[newIndex + VARIABLELIST_CHILD_BEGIN];
 				newEntryValue = &scrVarGlob.variableList[index + VARIABLELIST_CHILD_BEGIN];
 				prev = newEntry->hash.u.prev;
-				next = entry->u.next;
-				scrVarGlob.variableList[scrVarGlob.variableList[prev + VARIABLELIST_CHILD_BEGIN].hash.id + VARIABLELIST_CHILD_BEGIN].u.next = next;
+				next = entry->u.freeNext;
+				scrVarGlob.variableList[scrVarGlob.variableList[prev + VARIABLELIST_CHILD_BEGIN].hash.id + VARIABLELIST_CHILD_BEGIN].u.freeNext = next;
 				scrVarGlob.variableList[next + VARIABLELIST_CHILD_BEGIN].hash.u.prev = prev;
 				newEntry->hash.id = entry->hash.id;
 				entry->hash.id = index;
@@ -3783,7 +3797,7 @@ uint32_t  GetNewVariableIndexInternal3(uint32_t parentId, uint32_t name, uint32_
 
 			if ((entry->w.status & VAR_STAT_MASK) != 0)
 			{
-				newIndex = scrVarGlob.variableList[VARIABLELIST_CHILD_BEGIN].u.next;
+				newIndex = scrVarGlob.variableList[VARIABLELIST_CHILD_BEGIN].u.freeNext;
 
 				if (!newIndex)
 					Scr_TerminalError("exceeded maximum number of script variables");
@@ -3791,8 +3805,8 @@ uint32_t  GetNewVariableIndexInternal3(uint32_t parentId, uint32_t name, uint32_
 				newEntry = &scrVarGlob.variableList[newIndex + VARIABLELIST_CHILD_BEGIN];
 				newEntryValue = &scrVarGlob.variableList[newEntry->hash.id + VARIABLELIST_CHILD_BEGIN];
 				iassert((newEntryValue->w.status & VAR_STAT_MASK) == VAR_STAT_FREE);
-				next = newEntryValue->u.next;
-				scrVarGlob.variableList[VARIABLELIST_CHILD_BEGIN].u.next = next;
+				next = newEntryValue->u.freeNext;
+				scrVarGlob.variableList[VARIABLELIST_CHILD_BEGIN].u.freeNext = next;
 				scrVarGlob.variableList[next + VARIABLELIST_CHILD_BEGIN].hash.u.prev = 0;
 			}
 			else
@@ -3803,8 +3817,8 @@ uint32_t  GetNewVariableIndexInternal3(uint32_t parentId, uint32_t name, uint32_
 				//newEntryValue = &scrVarGlob.variableList[index + VARIABLELIST_CHILD_BEGIN];
 				newEntryValue = entry;
 				prev = newEntry->hash.u.prev;
-				next = entry->u.next;
-				scrVarGlob.variableList[scrVarGlob.variableList[prev + VARIABLELIST_CHILD_BEGIN].hash.id + VARIABLELIST_CHILD_BEGIN].u.next = next;
+				next = entry->u.freeNext;
+				scrVarGlob.variableList[scrVarGlob.variableList[prev + VARIABLELIST_CHILD_BEGIN].hash.id + VARIABLELIST_CHILD_BEGIN].u.freeNext = next;
 				scrVarGlob.variableList[next + VARIABLELIST_CHILD_BEGIN].hash.u.prev = prev;
 			}
 
@@ -3844,7 +3858,7 @@ uint32_t  GetNewVariableIndexInternal3(uint32_t parentId, uint32_t name, uint32_
 	else
 	{
 		newIndex = entry->v.next;
-		next = entryValue->u.next;
+		next = entryValue->u.freeNext;
 		if (newIndex == entry->hash.id || (entry->w.status & VAR_STAT_MASK) != 0)
 		{
 			newEntryValue = &scrVarGlob.variableList[entry->hash.id + VARIABLELIST_CHILD_BEGIN];
@@ -3854,13 +3868,13 @@ uint32_t  GetNewVariableIndexInternal3(uint32_t parentId, uint32_t name, uint32_
 			scrVarGlob.variableList[newIndex + VARIABLELIST_CHILD_BEGIN].hash.id = entry->hash.id;
 			entry->hash.id = index;
 			entryValue->v.next = newIndex;
-			entryValue->u.next = entry->u.next;
+			entryValue->u.freeNext = entry->u.freeNext;
 			newEntryValue = entry;
 		}
 		prev = entry->hash.u.prev;
 		iassert(!scrVarGlob.variableList[VARIABLELIST_CHILD_BEGIN + prev].hash.id || (scrVarGlob.variableList[VARIABLELIST_CHILD_BEGIN + scrVarGlob.variableList[VARIABLELIST_CHILD_BEGIN + prev].hash.id].w.status & VAR_STAT_MASK) == VAR_STAT_FREE);
 		iassert(!scrVarGlob.variableList[VARIABLELIST_CHILD_BEGIN + next].hash.id || (scrVarGlob.variableList[VARIABLELIST_CHILD_BEGIN + scrVarGlob.variableList[VARIABLELIST_CHILD_BEGIN + next].hash.id].w.status & VAR_STAT_MASK) == VAR_STAT_FREE);
-		scrVarGlob.variableList[scrVarGlob.variableList[prev + VARIABLELIST_CHILD_BEGIN].hash.id + VARIABLELIST_CHILD_BEGIN].u.next = next;
+		scrVarGlob.variableList[scrVarGlob.variableList[prev + VARIABLELIST_CHILD_BEGIN].hash.id + VARIABLELIST_CHILD_BEGIN].u.freeNext = next;
 		scrVarGlob.variableList[next + VARIABLELIST_CHILD_BEGIN].hash.u.prev = prev;
 		newEntryValue->w.status = VAR_STAT_HEAD;
 		newEntryValue->v.next = index;
@@ -3976,13 +3990,13 @@ uint32_t  GetNewVariableIndexReverseInternal2(uint32_t parentId, uint32_t name, 
 uint32_t  GetNewVariableIndexInternal(uint32_t parentId, uint32_t name)
 {
 	iassert(!FindVariableIndexInternal(parentId, name));
-	return GetNewVariableIndexInternal2(parentId, name, (parentId + FACTOR101 * name) % 0xFFFD + 1);
+	return GetNewVariableIndexInternal2(parentId, name, (parentId + FACTOR101 * name) % (VARIABLELIST_CHILD_SIZE - 1) + 1);
 }
 
 uint32_t  GetNewVariableIndexReverseInternal(uint32_t parentId, uint32_t name)
 {
 	iassert(!FindVariableIndexInternal(parentId, name));
-	return GetNewVariableIndexReverseInternal2(parentId, name, (parentId + FACTOR101 * name) % 0xFFFD + 1);
+	return GetNewVariableIndexReverseInternal2(parentId, name, (parentId + FACTOR101 * name) % (VARIABLELIST_CHILD_SIZE - 1) + 1);
 }
 
 void  MakeVariableExternal(uint32_t index, VariableValueInternal* parentValue)
@@ -4127,10 +4141,10 @@ void  FreeChildValue(uint32_t parentId, uint32_t id)
 	}
 	entryValue->w.status = 0;
 	entryValue->u = 0; // lwss ADD (zero out upper bytes of the union) (KISAKTODO: this might be improper)
-	entryValue->u.next = scrVarGlob.variableList[VARIABLELIST_CHILD_BEGIN].u.next;
+	entryValue->u.freeNext = scrVarGlob.variableList[VARIABLELIST_CHILD_BEGIN].u.freeNext;
 	entry->hash.u.prev = 0;
-	scrVarGlob.variableList[scrVarGlob.variableList[VARIABLELIST_CHILD_BEGIN].u.next + VARIABLELIST_CHILD_BEGIN].hash.u.prev = index;
-	scrVarGlob.variableList[VARIABLELIST_CHILD_BEGIN].u.next = index;
+	scrVarGlob.variableList[scrVarGlob.variableList[VARIABLELIST_CHILD_BEGIN].u.freeNext + VARIABLELIST_CHILD_BEGIN].hash.u.prev = index;
+	scrVarGlob.variableList[VARIABLELIST_CHILD_BEGIN].u.freeNext = index;
 }
 
 void  ClearObjectInternal(uint32_t parentId)
@@ -4670,7 +4684,7 @@ int Scr_AddStringSet(uint32_t setId, const char *string)
 	VariableValue v8; // [sp+50h] [-30h] BYREF
 
 	LowercaseString = SL_GetLowercaseString(string, 0);
-	if (scrVarGlob.variableList[FindVariableIndexInternal(setId, LowercaseString) + 32770].hash.id)
+	if (scrVarGlob.variableList[FindVariableIndexInternal(setId, LowercaseString) + VARIABLELIST_CHILD_BEGIN].hash.id)
 	{
 		SL_RemoveRefToString(LowercaseString);
 		return 0;

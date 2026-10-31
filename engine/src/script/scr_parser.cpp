@@ -689,6 +689,11 @@ char *__cdecl Scr_ReadFile_LoadObj(const char *filename, char *extFilename, cons
 
 char *__cdecl Scr_ReadFile(const char *filename, char *extFilename, const char *codePos, bool archive)
 {
+#ifdef KISAK_MP
+    // Only the packaged, server-owned Bot Warfare namespace overrides fastfiles.
+    if (filename && !strncmp(filename, "maps/mp/bots/", 13))
+        return Scr_ReadFile_LoadObj(filename, extFilename, codePos, archive);
+#endif
     int file; // [esp+24h] [ebp-4h] BYREF
 
     if (*(_BYTE *)fs_gameDirVar->current.integer)

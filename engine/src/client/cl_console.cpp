@@ -1,3 +1,6 @@
+#ifdef COD4_LIVE_CONTROLLER
+#include <live/controller_glyph.h>
+#endif
 #include <universal/q_shared.h>
 #include "client.h"
 #include <qcommon/mem_track.h>
@@ -881,7 +884,11 @@ char __cdecl CL_ConsolePrint_AddLine(
                 goto LABEL_58;
             if (!text || *text == 94 || *text < 48 || *text > 57)
             {
-                if (*text != 1 && *text != 2)
+                if (*text != 1 && *text != 2
+#ifdef COD4_LIVE_CONTROLLER
+                    && !live::controller_glyph::Named(text)
+#endif
+                    )
                 {
                 LABEL_58:
                     if (c != 32 || !atStartOfBrokenLine)
@@ -904,6 +911,14 @@ char __cdecl CL_ConsolePrint_AddLine(
                 // Kisak: I screwed this up, and can't figure it out.
                 // iassert(IsValidMaterialHandle(*reinterpret_cast<Material*>(&text[CONTXTCMD_ARG_HUDICON_MATERIAL]))); // IsValidMaterialHandle( *reinterpret_cast< const MaterialHandle * >( &text[CONTXTCMD_ARG_HUDICON_MATERIAL] )
                 con.textTempLine[con.lineOffset++] = 94;
+#ifdef COD4_LIVE_CONTROLLER
+                const auto glyphBytes = live::controller_glyph::Bytes(text);
+                if (con.lineOffset + glyphBytes < sizeof(con.textTempLine)) {
+                    memcpy(&con.textTempLine[con.lineOffset], text, glyphBytes);
+                    con.lineOffset += glyphBytes;
+                }
+                text += glyphBytes;
+#else
                 v9 = &con.textTempLine[con.lineOffset];
                 v10 = text;
                 *(uint32_t *)v9 = *(uint32_t *)text;
@@ -911,6 +926,7 @@ char __cdecl CL_ConsolePrint_AddLine(
                 v9[6] = v10[6];
                 con.lineOffset += 7;
                 text += 7;
+#endif
                 bcassert(con.lineOffset, sizeof(con.textTempLine) + 1); // 0x201
                 atStartOfBrokenLine = 0;
             }

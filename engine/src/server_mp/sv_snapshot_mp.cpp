@@ -1923,7 +1923,10 @@ void __cdecl SV_SendClientMessages()
     c = svs.clients;
     while (i < maxclients)
     {
-        if (c->header.state && svs.time >= c->nextSnapshotTime)
+        // Internal bots are simulated on the server and have no network peer to
+        // receive/acknowledge snapshots. Their entities still enter human views
+        // and the shared archive below.
+        if (c->header.state && c->header.netchan.remoteAddress.type != NA_BOT && svs.time >= c->nextSnapshotTime)
         {
             ++numclients;
             if (c->header.netchan.unsentFragments)

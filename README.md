@@ -16,6 +16,8 @@ assets and proprietary middleware are excluded from this repository and installe
 ## Controller play
 
 - Native Xbox/XInput and PlayStation input, with a Steam Input compatibility mode.
+- Native Controller menu pages, IW4x button artwork, eight button layouts, four
+  stick layouts, ten sensitivity presets and custom sensitivity settings.
 - Keyboard/mouse remains available for chat and menus. Gameplay attempts are blocked
   immediately, warned, and disconnected after five seconds of continuing attempts.
   A clean 500 ms interval resets the warning window.
@@ -23,6 +25,8 @@ assets and proprietary middleware are excluded from this repository and installe
 - Base FOV is 65. Scale ranges from 1 to 90/65 (about 1.384615). These are CoD4's
   standard 4:3-reference values; native widescreen conversion is retained.
 - Protocol 10003 requires matching cod4-live clients and servers.
+- Bot Warfare is built in. Native host menus select count and difficulty; the
+  bot limit follows the configured player capacity minus one reserved human slot.
 
 Input reports describe what this client observes. They cannot establish physical
 hardware identity against modified clients or mouse-to-gamepad adapters.
@@ -45,6 +49,7 @@ The standalone installer and corresponding source archive are written to `dist/`
 
 Read [installation and Steam Input](docs/INSTALLER.md),
 [controller settings](docs/CONTROLLER.md), [server connections](docs/NETWORK.md),
+[Bot Warfare](docs/BOT_WARFARE.md),
 [third-party provenance](docs/THIRD-PARTY.md), and
 [validation status](docs/VALIDATION.md). The exact upstream revisions are in
 `upstream-lock.json`. Classic simulation is retained; the cod4x1khz 1,000 Hz engine

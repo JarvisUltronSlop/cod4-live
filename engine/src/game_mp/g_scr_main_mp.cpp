@@ -4,6 +4,7 @@
 
 #include <universal/q_shared.h>
 #include "g_public_mp.h"
+#include <live/bot_warfare.h>
 
 #include "g_utils_mp.h"
 
@@ -417,6 +418,7 @@ void __cdecl GScr_LoadScripts()
     g_scr_data.createstruct = GScr_LoadScriptAndLabel("codescripts/struct", "createstruct", 1);
     GScr_LoadGameTypeScript();
     GScr_LoadLevelScript();
+    live::bots::LoadScripts();
     Scr_PostCompileScripts();
     GScr_PostLoadScripts();
     Scr_EndLoadScripts();
@@ -448,6 +450,7 @@ void GScr_PostLoadScripts()
 
 void __cdecl GScr_FreeScripts()
 {
+    live::bots::Shutdown();
     int32_t classnum; // [esp+0h] [ebp-4h]
 
     for (classnum = 0; classnum < CLASS_NUM_COUNT; ++classnum)
@@ -5460,7 +5463,11 @@ void GScr_KickPlayer()
     if (Scr_GetNumParam())
     {
         playernum = Scr_GetInt(0);
-        Cbuf_AddText(0, va("tempBanClient %i\n", playernum));
+        // A Bot Warfare count adjustment is not a temporary ban. Bots have no
+        // authenticated GUID, and must remain eligible for the next fill cycle.
+        const bool bot = playernum >= 0 && playernum < 64 &&
+            svs.clients[playernum].header.netchan.remoteAddress.type == NA_BOT;
+        Cbuf_AddText(0, va(bot ? "clientkick %i\n" : "tempBanClient %i\n", playernum));
     }
 }
 
@@ -6425,6 +6432,7 @@ void __cdecl Scr_StartupGameType()
 
     callback = Scr_ExecThread(g_scr_data.gametype.startupgametype, 0);
     Scr_FreeThread(callback);
+    live::bots::StartScripts();
 }
 
 void __cdecl Scr_PlayerConnect(gentity_s *self)
@@ -6578,6 +6586,7 @@ void(__cdecl *__cdecl Scr_GetFunction(const char **pName, int *type))()
 {
     uint32_t i; // [esp+18h] [ebp-4h]
 
+    if (auto function = live::bots::GetFunction(pName)) { *type = 0; return function; }
     for (i = 0; i < 0xCD; ++i)
     {
         if (!strcmp(*pName, functions[i].actionString))
@@ -6611,6 +6620,7 @@ void(__cdecl *__cdecl Scr_GetMethod(const char **pName, int *type))(scr_entref_t
     void(__cdecl * method)(scr_entref_t); // [esp+0h] [ebp-4h]
 
     *type = 0;
+    if (auto method = live::bots::GetMethod(pName)) return method;
 
     method = Player_GetMethod(pName);
     if (method)

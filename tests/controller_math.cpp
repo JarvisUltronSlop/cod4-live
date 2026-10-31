@@ -1,6 +1,11 @@
 #include <live/iw4x/Aim/Assist.hpp>
 #include <live/iw4x/Mapping/StickLayout.hpp>
 #include <live/controller_policy.h>
+#include <live/controller_glyph.h>
+#include <live/input_policy.h>
+#include <live/iw4x/Mapping/Binding.hpp>
+#include <live/iw4x/Mapping/Glyph.hpp>
+#include <cstring>
 #include <cmath>
 #include <cstdlib>
 #include <iostream>
@@ -66,6 +71,23 @@ int main()
     Check(up > 0 && std::abs(inverted.process(look).pitch_delta.value + up) < .00001f,
         "inverted pitch must reverse direction exactly once");
     using namespace live::controller;
+    const auto blurred = Availability(false, true, true, 100, 100);
+    Check(blurred.present && !blurred.dispatchInput,
+        "background polling must report a connected controller without dispatching input");
+    const auto unplugged = Availability(false, false, false, 100, 101);
+    Check(!unplugged.present && !unplugged.dispatchInput,
+        "unplug while alt-tabbed must immediately clear presence");
+    Check(Availability(false, true, false, 100, 349).present && !Availability(false, true, false, 100, 350).present,
+        "stale controller samples must expire while alt-tabbed");
+    Check(Availability(true, true, true, 400, 400).dispatchInput,
+        "focused fresh controller input must remain available");
+    live::InputPolicy backgroundPolicy;
+    Check(backgroundPolicy.Update(100, blurred.present ? live::ControllerConnected : 0) == live::InputAction::None,
+        "focus loss alone must not start disconnect enforcement");
+    Check(backgroundPolicy.Update(101, unplugged.present ? live::ControllerConnected : 0) == live::InputAction::WarnDisconnected,
+        "background unplug must start the server disconnect grace");
+    Check(backgroundPolicy.Update(30101, 0) == live::InputAction::KickDisconnected,
+        "background unplug must not bypass the thirty-second server grace");
     Check(WeaponAllowsAssist(false, 1), "free-fire weapons, including RPGs, retain weapon-defined aim assist");
     Check(!WeaponAllowsAssist(true, 1), "lock-on launchers must not receive controller target assist");
     Check(!WeaponAllowsAssist(false, 0) && !WeaponAllowsAssist(true, 0), "empty weapons must not receive slowdown");
@@ -92,5 +114,34 @@ int main()
     Check(!tap.active && !tap.ReleaseReady(), "disconnect/menu must clear a pending tap");
     tap.Press(); tap.CommandBuilt();
     Check(tap.RequestRelease(), "an observed held button must release immediately");
+    Check(MenuKeyForButton(1)==K_ENTER && MenuKeyForButton(14)==K_ENTER,
+        "A and Start must select native menu items");
+    Check(MenuKeyForButton(2)==K_ESCAPE && MenuKeyForButton(15)==K_ESCAPE,
+        "B and Back must cancel native menus");
+    Check(MenuKeyForButton(4)==K_F1 && MenuKeyForButton(3)==K_F2,
+        "Y and X must retain native F1/F2 menu actions");
+    using mapping::engine_key;
+    for (const char* name : {"buttons_default","buttons_tactical","buttons_lefty","buttons_nomad"}) {
+        mapping::binding_table normalLayout, flippedLayout;
+        mapping::apply_button_layout(normalLayout,name);
+        mapping::apply_button_layout(flippedLayout,std::string(name)+"_alt");
+        Check(normalLayout.size()==16 && flippedLayout.size()==16,"all eight profiles must bind sixteen buttons");
+        Check(*normalLayout.command_for(engine_key::button_rtrig)==*flippedLayout.command_for(engine_key::button_rshldr),
+            "flipped profile must exchange trigger and shoulder actions");
+        Check(*normalLayout.command_for(engine_key::button_ltrig)==*flippedLayout.command_for(engine_key::button_lshldr),
+            "flipped left trigger must preserve its action");
+    }
+    unsigned glyphCount=0;
+    for (auto key : mapping::keys()) for(auto family : {mapping::glyph_family::xbox,mapping::glyph_family::playstation}) {
+        const char* source=mapping::glyph_for(key,family);
+        if(!source) continue;
+        ++glyphCount;
+        std::string encoded(source); encoded[1]=3;
+        Check(live::controller_glyph::Named(encoded.c_str()+1),"named glyph must parse its complete material token");
+        Check(live::controller_glyph::Bytes(encoded.c_str()+1)+1==encoded.size(),"glyph length must consume exactly one inline token");
+        encoded.pop_back();
+        Check(!live::controller_glyph::Named(encoded.c_str()+1),"truncated material names must be rejected");
+    }
+    Check(glyphCount==32,"both families must provide all sixteen button glyphs");
     std::cout << "controller math/policy tests passed\n";
 }

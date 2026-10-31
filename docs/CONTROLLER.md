@@ -1,9 +1,15 @@
 # Controller support
 
-Open **Controller settings** with **Y / Triangle** while a menu is open, **F7**, or
-the `controller_settings` console command. Use the D-pad or left stick to navigate,
-A / Cross to select, and B / Circle to return. Keyboard and mouse remain available
-in menus, chat, and the console.
+Open **CONTROLLER** from the native main, Options, or pause menus. The **F7**
+shortcut and `controller_settings` command open the same native menu. These are
+normal CoD4 menu items, sliders, selection lists, and menu stacks, including mouse
+selection and keyboard navigation. There is no separate drawn settings overlay.
+
+The D-pad and either stick navigate. A / Cross and Start / Options select;
+B / Circle and Back / Share return. Y / Triangle invokes the native F1 action and
+X / Square invokes F2, matching IW4x. Menu scrolling uses IW4x's configurable first
+repeat, repeat interval, and acceleration. Keyboard and mouse remain available in
+menus, chat, and the console.
 
 The default gameplay layout is A / Cross to jump or stand, B / Circle for stance,
 X / Square for use and reload, Y / Triangle to change weapon, right trigger to fire,
@@ -39,17 +45,40 @@ The driver automatically selects one controller, preferring a native HID device
 over XInput in native mode. XInput slots are rediscovered periodically, including
 virtual devices that do not generate a hardware notification. Stale samples and
 disconnects release held controls. Switching backends, losing focus, and opening
-menus also release held gameplay controls.
+menus also release held gameplay controls. Device discovery and freshness checks
+continue while the window is unfocused, so unplugging or losing a device still
+starts the server's 30-second reconnect grace. Background input is not dispatched
+to menus or gameplay, does not count as a keyboard/mouse attempt, and cannot
+produce held-button actions when focus returns.
 
 ## Settings and bindings
 
-The menu offers default, tactical, lefty, nomad, default flipped, and tactical
-flipped button layouts (`buttons_default`, `buttons_tactical`, `buttons_lefty`,
-`buttons_nomad`, `buttons_default_alt`, `buttons_tactical_alt`); standard, southpaw,
-legacy, and legacy southpaw sticks (`thumbstick_default`, `thumbstick_southpaw`,
-`thumbstick_legacy`, `thumbstick_legacysouthpaw`);
-look and ADS sensitivity; inverted look; inner/outer stick deadzones; trigger
-threshold; automatic/Xbox/PlayStation prompts; vibration; and field of view.
+The native Controller menu exposes all eight IW4x button profiles: Default,
+Tactical, Lefty, Nomad, and the flipped version of each. Their config names are
+`buttons_default`, `buttons_tactical`, `buttons_lefty`, `buttons_nomad`, and the
+corresponding `_alt` names. All four stick profiles are available: Default,
+Southpaw, Legacy, and Legacy southpaw (`thumbstick_default`,
+`thumbstick_southpaw`, `thumbstick_legacy`, `thumbstick_legacysouthpaw`).
+
+**Look / Sensitivity** offers IW4x's ten presets, with multipliers
+`0.6, 1.0, 1.4, 1.8, 2.0, 2.2, 2.6, 3.0, 3.5, 4.0`, plus a custom `0.05-5.0`
+slider, ADS multiplier, and inversion. **Sticks / Triggers** exposes inner/outer
+stick deadzones, anti-deadzone, menu stick threshold/hysteresis, and trigger
+threshold/hysteresis. The effective outer deadzone is limited so it cannot
+eliminate the usable stick range. **Menu Scroll** provides the four repeat timing
+controls. **View Button Mapping** displays all 16 current bindings with their
+device glyphs. Backend, prompt family, vibration, and capped field-of-view scale
+are on the main Controller page. Base FOV stays 65; scale cannot exceed 90/65.
+
+The two glyph families use all 32 button materials named by IW4x's controller
+mapping, including face buttons, shoulders, triggers, both stick clicks,
+Start/Back, and each D-pad direction. Automatic prompts follow the active native
+device; PlayStation and Xbox overrides are available. Native menu footers and
+in-game binding prompts use inline image glyphs. The art comes from pinned
+`iw4x/iw4x-rawfiles`; its GPL license, source paths, hashes, and image conversion
+notes ship in `notices/`. No MW2 executable or compiled retail asset bundle is
+included. Code-owned glyph textures use an isolated `images/live_controller/`
+path and are released/recreated with the renderer.
 
 Bindings use persistent CoD key bindings with `BUTTON_A`, `BUTTON_B`, `BUTTON_X`,
 `BUTTON_Y`, `BUTTON_LSHLDR`, `BUTTON_RSHLDR`, `BUTTON_LTRIG`, `BUTTON_RTRIG`,
@@ -57,12 +86,16 @@ Bindings use persistent CoD key bindings with `BUTTON_A`, `BUTTON_B`, `BUTTON_X`
 `DPAD_DOWN`, `DPAD_LEFT`, and `DPAD_RIGHT`.
 Use the `bind` console command for custom assignments. For example, `bind BUTTON_RSTICK "+melee"` assigns right-stick click.
 Selecting a different layout replaces those assignments. Existing custom assignments are retained on
-startup. Prompts are readable button names; no MW2 UI art is included.
+startup. Gameplay custom binds remain subject to controller provenance checks.
 
 ## Aim and source accounting
 
-The adapter uses the pinned IW4x deadzone, stick mapping, response curve, turn
-integration, slowdown, and rotational-assist math. CoD4 supplies its existing
+The adapter uses the pinned IW4x deadzone, stick mapping, response-curve evaluator,
+turn integration, slowdown, and rotational-assist math. Both engine adapters read
+the host game's graph 3 with scaled knot values; cod4-live uses CoD4's
+`aim_assist/view_input_3.graph` from the owned game assets. The pinned IW4x rawfiles
+repository does not publish a separate replacement graph. Exact equality with
+MW2's retail graph knots is not claimed. CoD4 supplies its existing
 weapon ranges, ADS and FOV scaling, target bounds, enemy/team checks, visibility
 traces, and melee behavior. Slowdown defaults are 0.4 at hip and 0.5 at ADS;
 rotational strength is 0.6 and requires look/strafe deflection. It does not snap to
@@ -99,7 +132,9 @@ the installer.
 `controller-math` checks radial deadzones, constant turn integration (acceleration
 disabled) at 30/60/144/250/1000 Hz,
 slowdown interpolation, relative-motion rotation, inversion, stick mapping,
-gameplay command classification, and short-tap retention. The integration and
+gameplay command classification, short-tap retention, native menu button parity,
+all eight button profiles, parsing/length validation for all 32 inline glyphs,
+and presence-versus-focus behavior through the server's disconnect grace. The integration and
 native drivers compile into the Windows client.
 
 On 2026-10-31 a physical DualSense over USB was tested with the production driver
@@ -115,5 +150,16 @@ assistance behavior or confirm vibration.
 Remaining hardware acceptance includes Xbox, DualShock 4, Bluetooth, Steam Input,
 alternate layouts, ADS/melee/killstreak targeting, slow walk/diagonals, live
 weapon-specific slowdown/rotation and visibility cases, rumble, hotplug, and
-focus loss/recovery. The final native client/server build and all five automated
-tests passed after the focus and fixed-tuning changes.
+focus loss/recovery. Command-driven debugger checks also completed an 18-second sequence that opens
+Controller settings, restarts the renderer, and reopens settings, plus a 28-second
+isolated listen-server sequence that loads `mp_crash`, opens settings, disconnects,
+reloads the main menu, and reopens settings. There were no fatal exceptions,
+missing glyph warnings, or native focus-script errors. These checks validate
+startup/reload paths, not the visual appearance of the pages.
+
+The earlier native client/server build and five automated tests passed after the
+focus and fixed-tuning changes. The expanded native menu build and all seven
+current automated tests subsequently passed. The earlier physical menu-to-match
+confirmation predates the new native settings pages and image glyphs; those still
+need visual/controller acceptance. Computer-use inspection is currently disabled
+following the user's Escape, so no visual verification is claimed for the new UI.

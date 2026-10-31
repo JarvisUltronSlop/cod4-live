@@ -539,7 +539,7 @@ void __cdecl Scr_CompileVariableExpression(sval_u *expr)
             idValue.intValue = atoi(s + 1);
             if (!idValue.type)
                 goto LABEL_28;
-            if (idValue.type >= 0x8000u)
+            if (idValue.type >= VARIABLELIST_PARENT_SIZE)
                 goto LABEL_28;
             if (IsObjectFree(idValue.stringValue))
                 goto LABEL_28;

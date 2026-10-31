@@ -109,16 +109,26 @@ remaining acceptance cases below are not claimed as passed.
   and server configuration survived, and all 343 source paths, sizes and
   modification times remained unchanged. The installed dedicated executable
   loaded Crash and connected to Steam when launched outside its directory.
+- A subsequent real payload update from revision `605cf11` to `adeccf8` passed
+  binary/script/glyph repair and preserved the same profile and server fixtures.
+  Installed client/server hashes matched the packaged runtime; all 343 Steam
+  source files retained their paths, sizes and modification times. The updated
+  installed dedicated server connected to app 7940 and served Crash with two bots
+  when launched outside its directory, with no script runtime errors.
+- The user confirmed the new inline host controls work with the DualSense.
+  Maximum Players, BOTS and BOT DIFFICULTY now share the stock Start New Server
+  list. The user requested a one-bot Shipment match to judge snap more clearly
+  after testing with a larger bot count.
 - Valve's dedicated runtime helper downloaded app 1007 directly from Valve,
   checked its signatures and x86 DLLs, and passed anonymous server API login
   while loading the downloaded local steamclient.dll.
 
 ## Acceptance still required
 
-- Complete the new LT-snap playtest and inline host-count/difficulty checks.
+- Complete the focused LT-snap playtest on Shipment with one bot.
   The earlier zero-only bot count was a one-player capacity left by a boundary
-  test, confirmed from the live dvars. The next manual test starts at capacity
-  64 with seven bots. Desktop control is currently paused after Escape.
+  test, confirmed from the live dvars. The corrected inline controls have passed
+  the user's manual check. Desktop control is currently paused after Escape.
 - Broaden physical checks to short taps, held actions, scoreboard, all class/team
   menus, location selection, hotplug and vibration across the other backends.
 - Xbox/XInput hardware, PlayStation Bluetooth, and Steam Input virtual-gamepad

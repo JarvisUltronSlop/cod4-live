@@ -191,5 +191,6 @@ checks verified the general Controller page, all 16 PlayStation mapping glyphs,
 and the Controller main-menu entry. The user subsequently confirmed that DualSense
 navigation works in the new Controller menus and both Bot Warfare settings can
 be adjusted on the earlier separate page. Bot Count and Bot Difficulty now use
-inline native rows in Start New Server, immediately below Maximum Players.
+inline native rows in Start New Server, immediately below Maximum Players; the
+user also confirmed these inline controls work with the DualSense.
 The remaining acceptance checks are tracked in VALIDATION.md.

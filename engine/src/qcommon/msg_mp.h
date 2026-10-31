@@ -6,6 +6,8 @@
 
 #include "qcommon.h"
 #include "ent.h"
+#include <cstddef>
+#include <live/input_policy.h>
 
 // LWSS: these are aislop generated, may be inaccurate.
 #define BUTTON_ATTACK         (1 <<  0)  // +attack
@@ -74,8 +76,10 @@ struct usercmd_s // sizeof=0x20
     float meleeChargeYaw;               // XREF: CL_CreateCmd+67/w
     uint8_t meleeChargeDist;    // XREF: CL_CreateCmd+6A/w
     char selectedLocation[2];
+    uint8_t inputFlags; // cod4-live input provenance; occupies the former trailing padding byte.
 };
 static_assert(sizeof(usercmd_s) == 0x20);
+static_assert(offsetof(usercmd_s, inputFlags) == 31);
 
 struct hudelem_s;
 

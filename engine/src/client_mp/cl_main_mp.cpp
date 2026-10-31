@@ -38,6 +38,7 @@
 
 #ifdef WIN32
 #include <win32/win_steam.h>
+#include <live/steam_auth_policy.h>
 #include <universal/base64.h>
 #else
 #error Steam Auth for Arch
@@ -357,11 +358,14 @@ void __cdecl CL_MapLoading(const char *mapname)
                     CL_Disconnect(localClientNumb);
                     KISAK_NULLSUB();
                     UI_CloseAll(localClientNumb);
-                    clientUIActives[localClientNumb].connectionState = CA_CHALLENGING;
+                    clientUIActives[localClientNumb].connectionState = CA_CONNECTING;
                     clca = CL_GetLocalClientConnection(localClientNumb);
+                    clca->challenge = 0;
                     clca->connectTime = -3000;
                     clca->qport = localClientNumb + g_qport;
                     NET_StringToAdr(cls.servername, &clca->serverAddress);
+                    if (!Steam_UpdateClientAuthTicket(clca->serverAddress))
+                        Com_Error(ERR_DROP, "Steam verification requires the account that owns CoD4.");
                     CL_CheckForResend(localClientNumb);
                     if (!*mapname)
                         MyAssertHandler(".\\client_mp\\cl_main_mp.cpp", 1498, 0, "%s", "mapname[0]");
@@ -1013,17 +1017,21 @@ void __cdecl CL_CheckForResend(int localClientNum)
                 //v2 = va("getchallenge 0 \"%s\"", md5Str);
 
                 got = Steam_GetRawClientTicket(&pSteamClientTicket, &steamClientTicketSize);
-                iassert(got);
+                if (!got) {
+                    if (Steam_ClientTicketFailed())
+                        Com_Error(ERR_DROP, "Steam ownership verification failed. Sign into the account that owns CoD4 and retry.");
+                    break;
+                }
                 b64_encode(pSteamClientTicket, steamClientTicketSize, steamTicketBase64);
                 iassert(b64_decode(steamTicketBase64, strlen((char *)steamTicketBase64), steamTicketDecodeBuf) == steamClientTicketSize);
-                v2 = va("getchallenge 0 \"%s\" \"%llu\"", steamTicketBase64, Steam_GetClientSteamID64());
+                v2 = va("getchallenge %i \"%s\" \"%llu\"", clc->challenge, steamTicketBase64, Steam_GetClientSteamID64());
 
                 NET_OutOfBandPrint((netsrc_t)localClientNum, clc->serverAddress, v2);
                 break;
             case CA_CHALLENGING:
                 v3 = Dvar_InfoString(localClientNum, 2);
                 I_strncpyz(dest, v3, 1024);
-                v4 = va("%i", 1);
+                v4 = va("%i", live::Protocol);
                 Info_SetValueForKey(dest, "protocol", v4);
                 v5 = va("%i", clc->challenge);
                 Info_SetValueForKey(dest, "challenge", v5);
@@ -1390,6 +1398,16 @@ char __cdecl CL_DispatchConnectionlessPacket(int localClientNum, netadr_t from, 
     char mapname[68]; // [esp+24h] [ebp-48h] BYREF
 
     c = Cmd_Argv(0);
+    if (!I_stricmp(c, "steamChallenge")) {
+        auto* connection = CL_GetLocalClientConnection(localClientNum);
+        uint64_t nonce;
+        if (CL_GetLocalClientConnectionState(localClientNum) != CA_CONNECTING ||
+            !NET_CompareAdr(from, connection->serverAddress) || Cmd_Argc() != 2 ||
+            !cod4live::steam_auth::parse_id(Cmd_Argv(1), nonce) || nonce > 0x7fffffffULL) return 0;
+        connection->challenge = static_cast<int>(nonce);
+        connection->connectTime = -99999;
+        return 1;
+    }
     if (!I_stricmp(c, "v"))
     {
         CL_VoicePacket(localClientNum, msg);
@@ -1659,6 +1677,7 @@ char __cdecl CL_DispatchConnectionlessPacket(int localClientNum, netadr_t from, 
     else if (connstate == CA_CONNECTING)
     {
         clcc = CL_GetLocalClientConnection(localClientNum);
+        if (!NET_CompareAdr(from, clcc->serverAddress)) return 0;
         v5 = Cmd_Argv(1);
         clcc->challenge = atoi(v5);
         clientUIActives[localClientNum].connectionState = CA_CHALLENGING;
@@ -2602,14 +2621,14 @@ void __cdecl CL_Record_f()
             {
                 s = Cmd_Argv(1);
                 I_strncpyz(demoName, (char *)s, 64);
-                Com_sprintf(name, 0x100u, "demos/%s.dm_%d", demoName, 1);
+                Com_sprintf(name, 0x100u, "demos/%s.dm_%d", demoName, live::Protocol);
             }
             else
             {
                 for (number = 0; number <= 9999; ++number)
                 {
                     Com_sprintf(demoName, 0x40u, "demo%04i", number);
-                    Com_sprintf(name, 0x100u, "demos/%s.dm_%d", demoName, 1);
+                    Com_sprintf(name, 0x100u, "demos/%s.dm_%d", demoName, live::Protocol);
                     if (!FS_FileExists(name))
                         break;
                 }
@@ -2753,9 +2772,9 @@ void __cdecl CL_PlayDemo_f()
             localClientNum = 0;
             CL_Disconnect(0);
             arg = Cmd_Argv(1);
-            Com_sprintf(extension, 0x20u, ".dm_%d", 1);
+            Com_sprintf(extension, 0x20u, ".dm_%d", live::Protocol);
             if (I_stricmp(&arg[strlen(arg) - (&extension[strlen(extension) + 1] - &extension[1])], extension))
-                Com_sprintf(name, 0x100u, "demos/%s.dm_%d", arg, 1);
+                Com_sprintf(name, 0x100u, "demos/%s.dm_%d", arg, live::Protocol);
             else
                 Com_sprintf(name, 0x100u, "demos/%s", arg);
             //if (localClientNum)
@@ -3587,8 +3606,8 @@ void __cdecl CL_InitOnceForAllClients()
     Cmd_AddServerCommandInternal("demo", CL_PlayDemo_f, &CL_PlayDemo_f_VAR_SERVER_0);
     Cmd_AddCommandInternal("timedemo", Cbuf_AddServerText_f, &CL_PlayDemo_f_VAR);
     Cmd_AddServerCommandInternal("timedemo", CL_PlayDemo_f, &CL_PlayDemo_f_VAR_SERVER);
-    Cmd_SetAutoComplete("demo", "demos", "dm_1");
-    Cmd_SetAutoComplete("timedemo", "demos", "dm_1");
+    Cmd_SetAutoComplete("demo", "demos", live::DemoExtension);
+    Cmd_SetAutoComplete("timedemo", "demos", live::DemoExtension);
     Cmd_AddCommandInternal("cinematic", CL_PlayCinematic_f, &CL_PlayCinematic_f_VAR);
     Cmd_AddCommandInternal("unskippablecinematic", CL_PlayUnskippableCinematic_f, &CL_PlayUnskippableCinematic_f_VAR);
     Cmd_SetAutoComplete("cinematic", "video", "roq");

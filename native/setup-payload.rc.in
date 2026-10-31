@@ -1,0 +1,2 @@
+#include <windows.h>
+100 RCDATA "@COD4LIVE_INSTALLER_PAYLOAD@"

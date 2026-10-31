@@ -16,6 +16,7 @@
 
 #ifdef WIN32
 #include <win32/win_steam.h>
+#include <live/steam_auth_policy.h>
 #include <universal/base64.h>
 #else
 #error Steam auth for Arch (Server)
@@ -130,129 +131,51 @@ int __cdecl SV_IsTempBannedGuid(const char *cdkeyHash)
 
 void __cdecl SV_GetChallenge(netadr_t from)
 {
-    int v1; // esi
-    //char *cdkeyHash; // [esp+4h] [ebp-18h]
-    char *clientSteamTicketBase64;
-    challenge_t *challenge; // [esp+8h] [ebp-14h]
-    int oldest; // [esp+Ch] [ebp-10h]
-    int i; // [esp+10h] [ebp-Ch]
-    int oldestTime; // [esp+14h] [ebp-8h]
-
-    oldest = 0;
-    oldestTime = 0x7FFFFFFF;
-    challenge = svs.challenges;
-    for (i = 0; i < 1024 && (challenge->connected || !NET_CompareAdr(from, challenge->adr)); ++i)
-    {
-        if (challenge->time < oldestTime)
-        {
-            oldestTime = challenge->time;
-            oldest = i;
-        }
-        ++challenge;
+    if ((from.type != NA_IP && from.type != NA_LOOPBACK) || !Steam_AllowChallenge(from)) return;
+    const char* encoded = SV_Cmd_Argv(2);
+    const char* textId = SV_Cmd_Argv(3);
+    uint64_t id;
+    unsigned char ticket[cod4live::steam_auth::max_ticket_bytes];
+    std::size_t size;
+    if (SV_Cmd_Argc() != 4 || !cod4live::steam_auth::parse_id(textId, id) ||
+        !cod4live::steam_auth::decode_ticket(encoded, ticket, sizeof(ticket), size)) {
+        NET_OutOfBandPrint(NS_SERVER, from, "error\nInvalid Steam authentication request.");
+        return;
     }
-    if (i == 1024)
-    {
-        challenge = &svs.challenges[oldest];
-        v1 = rand() << 16;
-        challenge->challenge = svs.time ^ rand() ^ v1;
+    challenge_t* challenge = nullptr;
+    challenge_t* oldest = nullptr;
+    for (auto& candidate : svs.challenges) {
+        if (!candidate.connected && NET_CompareAdr(from, candidate.adr)) { challenge = &candidate; break; }
+        if (!candidate.connected && (!oldest || candidate.time < oldest->time)) oldest = &candidate;
+    }
+    if (!challenge) {
+        if (!oldest) return;
+        challenge = oldest;
+        memset(challenge, 0, sizeof(*challenge));
+        challenge->challenge = Steam_NewChallenge();
+        if (!challenge->challenge) return;
         challenge->adr = from;
-        challenge->firstTime = svs.time;
-        challenge->firstPing = 0;
-        challenge->time = svs.time;
-        challenge->connected = 0;
-        i = oldest;
+        challenge->firstTime = challenge->time = svs.time;
     }
-    //cdkeyHash = (char *)SV_Cmd_Argv(2);
-    clientSteamTicketBase64 = (char *)SV_Cmd_Argv(2);
-    char *clientSteamID64 = (char *)SV_Cmd_Argv(3);
-    unsigned char decodedSteamTicket[1024 + 128]{ 0 };
-
-    if (!clientSteamTicketBase64[0] || !clientSteamID64[0])
-    {
-        iassert(0); // guy didn't send enough information
+    uint64_t echoed;
+    if (!cod4live::steam_auth::parse_id(SV_Cmd_Argv(1), echoed) || echoed != static_cast<uint32_t>(challenge->challenge)) {
+        // Prove return-address reachability before consuming a Steam auth session.
+        NET_OutOfBandPrint(NS_SERVER, from, va("steamChallenge %i", challenge->challenge));
         return;
     }
-
-    if (strlen(clientSteamTicketBase64) > sizeof(decodedSteamTicket))
-    {
-        iassert(0);
+    if (SV_IsBannedGuid(textId) || SV_IsTempBannedGuid(textId)) {
+        NET_OutOfBandPrint(NS_SERVER, from, "error\nYou are banned from this server.");
         return;
     }
-
-    uint32 decodedLen = b64_decode((unsigned char*)clientSteamTicketBase64, strlen(clientSteamTicketBase64), decodedSteamTicket);
-
-    //if (SV_IsBannedGuid(cdkeyHash))
-    if (SV_IsBannedGuid(clientSteamID64))
-    {
-        Com_Printf(CON_CHANNEL_SERVER, "rejected connection from permanently banned GUID \"%s\"\n", clientSteamID64);
-        NET_OutOfBandPrint(NS_SERVER, svs.challenges[i].adr, "error\xA\x15You are permanently banned from this server");
-        memset(&svs.challenges[i], 0, sizeof(svs.challenges[i]));
-        return;
-    }
-    //if (SV_IsTempBannedGuid(cdkeyHash))
-    if (SV_IsTempBannedGuid(clientSteamID64))
-    {
-        Com_Printf(CON_CHANNEL_SERVER, "rejected connection from temporarily banned GUID \"%s\"\n", clientSteamID64);
-        NET_OutOfBandPrint(NS_SERVER, svs.challenges[i].adr, "error\xA\x15You are temporarily banned from this server");
-        memset(&svs.challenges[i], 0, sizeof(svs.challenges[i]));
-        return;
-    }
-
-    //I_strncpyz(svs.challenges[i].cdkeyHash, cdkeyHash, 33);
-    I_strncpyz(svs.challenges[i].cdkeyHash, clientSteamID64, 33);
-    
-    char *endptr;
-    uint64_t steamID64 = strtoull(clientSteamID64, &endptr, 10);
-
-    //if (!SV_ShouldAuthorizeAddress(from))
-    if (Steam_CheckClientTicket(decodedSteamTicket, decodedLen, steamID64))
-    {
+    I_strncpyz(challenge->cdkeyHash, textId, sizeof(challenge->cdkeyHash));
+    const auto result = Steam_CheckClientTicket(ticket, static_cast<uint32_t>(size), id, from, challenge->challenge);
+    if (result == SteamAuthResult::verified) {
         challenge->pingTime = svs.time;
         NET_OutOfBandPrint(NS_SERVER, from, va("challengeResponse %i", challenge->challenge));
-        return;
+    } else if (result == SteamAuthResult::rejected) {
+        NET_OutOfBandPrint(NS_SERVER, from, "error\nSteam verification unavailable or rejected. Use the account that owns CoD4 and retry.");
     }
-    else
-    {
-        Com_Printf(CON_CHANNEL_SERVER, "rejected connection from invalid Steam GUID \"%s\"\n", clientSteamID64);
-        NET_OutOfBandPrint(NS_SERVER, svs.challenges[i].adr, "error\xA\x15Your Steam Client Ticket was Invalid");
-        memset(&svs.challenges[i], 0, sizeof(svs.challenges[i]));
-        return;
-    }
-
-    //if (!svs.authorizeAddress.ip[0] && svs.authorizeAddress.type != NA_BAD)
-    //{
-    //    Com_Printf(CON_CHANNEL_SERVER, "Resolving %s\n", com_authServerName->current.string);
-    //    if (!NET_StringToAdr((char *)com_authServerName->current.integer, &svs.authorizeAddress))
-    //    {
-    //        Com_Printf(CON_CHANNEL_SERVER, "Couldn't resolve address\n");
-    //        return;
-    //    }
-    //    svs.authorizeAddress.port = BigShort(com_authPort->current.integer);
-    //    v3 = BigShort(svs.authorizeAddress.port);
-    //    Com_Printf(
-    //        15,
-    //        "%s resolved to %i.%i.%i.%i:%i\n",
-    //        com_authServerName->current.string,
-    //        svs.authorizeAddress.ip[0],
-    //        svs.authorizeAddress.ip[1],
-    //        svs.authorizeAddress.ip[2],
-    //        svs.authorizeAddress.ip[3],
-    //        v3);
-    //}
-
-    //if (svs.time - svs.sv_lastTimeMasterServerCommunicated <= 1200000
-    //    || svs.time - challenge->firstTime <= 7000
-    //    || (v5 = *SV_MasterAddress(), NET_CompareAdr(from, v5)))
-    //{
-    //    SV_AuthorizeRequest(from, svs.challenges[i].challenge, cdkeyHash);
-    //}
-    //else
-    //{
-    //    Com_DPrintf(CON_CHANNEL_SERVER, "authorize server timed out\n");
-    //    challenge->pingTime = svs.time;
-    //    v4 = va("challengeResponse %i", challenge->challenge);
-    //    NET_OutOfBandPrint(NS_SERVER, challenge->adr, v4);
-    //}
+    // Pending requests receive challengeResponse only after Steam's asynchronous ownership callback.
 }
 
 int __cdecl SV_IsBannedGuid(const char *cdkeyHash)
@@ -608,10 +531,10 @@ void __cdecl SV_DirectConnect(netadr_t from)
     Com_DPrintf(CON_CHANNEL_SERVER, "SV_DirectConnect()\n");
     I_strncpyz(userinfo, SV_Cmd_Argv(1), 1024);
     version = atoi(Info_ValueForKey(userinfo, "protocol"));
-    if (version != 1)
+    if (version != live::Protocol)
     {
-        NET_OutOfBandPrint(NS_SERVER, from, va("EXE_SERVER_IS_DIFFERENT_VER %s", "1.0"));
-        Com_DPrintf(CON_CHANNEL_SERVER, "    rejected connect from protocol version %i (should be %i)\n", version, 1);
+        NET_OutOfBandPrint(NS_SERVER, from, "error\ncod4-live client/server version mismatch. Update cod4-live.");
+        Com_DPrintf(CON_CHANNEL_SERVER, "    rejected connect from protocol version %i (should be %i)\n", version, live::Protocol);
         return;
     }
     challenge = atoi(Info_ValueForKey(userinfo, "challenge"));
@@ -636,7 +559,7 @@ void __cdecl SV_DirectConnect(netadr_t from)
     }
     cdkeyHash[0] = 0;
 
-    if (!NET_IsLocalAddress(from))
+    if (from.type != NA_BOT)
     {
         for (i = 0; i < 1024; ++i)
         {
@@ -649,6 +572,10 @@ void __cdecl SV_DirectConnect(netadr_t from)
         if (i == 1024)
         {
             NET_OutOfBandPrint(NS_SERVER, from, "error\nEXE_BAD_CHALLENGE");
+            return;
+        }
+        if (!Steam_IsClientVerified(cdkeyHash, from, challenge)) {
+            NET_OutOfBandPrint(NS_SERVER, from, "error\nSteam ownership has not been verified.");
             return;
         }
         if (svs.challenges[i].firstPing)
@@ -805,6 +732,7 @@ void __cdecl SV_DirectConnect(netadr_t from)
                 newcl->name,
                 clientNum,
                 newcl->cdkeyHash);
+            Steam_AttachClient(cdkeyHash, from, challenge);
             newcl->header.state = CS_CONNECTED;
             newcl->nextSnapshotTime = svs.time;
             newcl->lastPacketTime = svs.time;
@@ -910,14 +838,7 @@ void __cdecl SV_DropClient(client_t *drop, const char *reason, bool tellThem)
     challenge_t *challenge; // [esp+34h] [ebp-8h]
     int i; // [esp+38h] [ebp-4h]
 
-    // LWSS ADD
-    if (com_dedicated->current.integer)
-    {
-        char *endptr;
-        uint64_t steamID64 = strtoull(drop->cdkeyHash, &endptr, 10);
-        Steam_OnClientDropped(steamID64);
-    }
-    // LWSS END
+    Steam_OnClientDropped(drop->cdkeyHash, drop->header.netchan.remoteAddress, drop->challenge);
 
     if (drop->header.state == CS_FREE)
         MyAssertHandler(".\\server_mp\\sv_client_mp.cpp", 1267, 0, "%s", "drop->header.state != CS_FREE");
@@ -1208,8 +1129,25 @@ void __cdecl SV_SendClientGameState(client_t *client)
     SV_GetServerStaticHeader();
 }
 
+namespace { bool SV_ApplyControllerPolicy(client_t* client, usercmd_s* cmd); }
+
 void __cdecl SV_ClientEnterWorld(client_t *client, usercmd_s *cmd)
 {
+    if (!Steam_IsClientVerified(client->cdkeyHash, client->header.netchan.remoteAddress, client->challenge)) {
+        SV_DropClient(client, "Steam ownership verification is required to play.", true);
+        return;
+    }
+    // Initial/map-restart commands can reach ClientSpawn before normal UserMove
+    // filtering, so they require the same input checks as active commands.
+    if (!SV_ApplyControllerPolicy(client, cmd)) return;
+    if (client->header.netchan.remoteAddress.type != NA_BOT && !(cmd->inputFlags & live::ControllerConnected))
+    {
+        // Keep the authenticated connection primed until a device is present.
+        // Record the neutral command so retransmissions cannot advance policy.
+        client->header.state = CS_CLIENTLOADING;
+        client->lastUsercmd = *cmd;
+        return;
+    }
     gentity_s *v2; // eax
 
     Com_DPrintf(CON_CHANNEL_SERVER, "Going from CS_CLIENTLOADING to CS_ACTIVE for %s\n", client->name);
@@ -1306,12 +1244,81 @@ void __cdecl SV_UpdateUserinfo_f(client_t *cl)
     ClientUserinfoChanged(cl - svs.clients);
 }
 
+namespace
+{
+struct LiveInputState
+{
+    live::InputPolicy policy;
+    int connectionTime = -1;
+    int challenge = 0;
+    int lastServerTime = 0;
+};
+LiveInputState liveInputStates[64];
+
+bool SV_ApplyControllerPolicy(client_t* client, usercmd_s* cmd)
+{
+    // Only internally created bots bypass the controller requirement.
+    if (client->header.netchan.remoteAddress.type == NA_BOT) return true;
+    const auto index = client - svs.clients;
+    if (index < 0 || index >= 64) return false;
+    auto& state = liveInputStates[index];
+    if (state.connectionTime != client->lastConnectTime || state.challenge != client->challenge
+        || svs.time < state.lastServerTime)
+    {
+        state = {};
+        state.connectionTime = client->lastConnectTime;
+        state.challenge = client->challenge;
+    }
+    state.lastServerTime = svs.time;
+    const auto action = state.policy.Update(static_cast<uint32_t>(svs.time), cmd->inputFlags);
+    switch (action)
+    {
+    case live::InputAction::Invalid:
+        SV_DropClient(client, "Invalid cod4-live input report. Update your client.", true);
+        return false;
+    case live::InputAction::KickKeyboardMouse:
+        SV_DropClient(client, "Controller required: keyboard/mouse gameplay continued for 5 seconds.", true);
+        return false;
+    case live::InputAction::KickDisconnected:
+        SV_DropClient(client, "Controller disconnected for 30 seconds. Reconnect it and rejoin.", true);
+        return false;
+    case live::InputAction::WarnKeyboardMouse:
+        SV_SendServerCommand(client, SV_CMD_RELIABLE,
+            "g \"Controller required. Stop keyboard/mouse gameplay or you will be kicked in 5 seconds.\"");
+        break;
+    case live::InputAction::WarnDisconnected:
+        SV_SendServerCommand(client, SV_CMD_RELIABLE,
+            "g \"Controller disconnected. Reconnect within 30 seconds.\"");
+        break;
+    default:
+        break;
+    }
+    if (live::InputPolicy::BlockGameplay(cmd->inputFlags))
+    {
+        const auto time = cmd->serverTime;
+        const auto flags = cmd->inputFlags;
+        // Preserve the last accepted view/weapon, and advance time with no gameplay actions.
+        *cmd = client->lastUsercmd;
+        cmd->serverTime = time;
+        cmd->inputFlags = flags;
+        cmd->buttons = 0;
+        cmd->forwardmove = 0;
+        cmd->rightmove = 0;
+        cmd->meleeChargeYaw = 0.0f;
+        cmd->meleeChargeDist = 0;
+        cmd->selectedLocation[0] = cmd->selectedLocation[1] = 0;
+    }
+    return true;
+}
+}
+
 void __cdecl SV_ClientThink(client_t *cl, usercmd_s *cmd)
 {
     char *v2; // eax
 
     if (cmd->serverTime - svs.time <= 20000)
     {
+        if (cl->header.state == CS_ACTIVE && !SV_ApplyControllerPolicy(cl, cmd)) return;
         memcpy(&cl->lastUsercmd, cmd, sizeof(cl->lastUsercmd));
         if (cl->header.state == CS_ACTIVE)
         {
@@ -1398,6 +1405,11 @@ void __cdecl SV_UserMove(client_t *cl, msg_t *msg, int delta)
                 {
                     cmd = &cmds[i];
                     MSG_ReadDeltaUsercmdKey(msg, key, oldcmd, cmd);
+                    if (msg->overflowed || msg->readcount > msg->cursize)
+                    {
+                        SV_DropClient(cl, "Invalid or truncated cod4-live user command.", true);
+                        return;
+                    }
                     if (ps->weapon != LOBYTE(ps->weapon))
                         MyAssertHandler(
                             ".\\server_mp\\sv_client_mp.cpp",
@@ -1516,10 +1528,22 @@ void __cdecl SV_UserMove(client_t *cl, msg_t *msg, int delta)
                     cl->header.predictedOrigin[2] = *(float *)&value;
                     cl->header.predictedOriginServerTime = MSG_ReadLong(msg);
                 }
+                if (msg->overflowed || msg->readcount > msg->cursize)
+                {
+                    SV_DropClient(cl, "Truncated cod4-live movement packet.", true);
+                    return;
+                }
                 if (cl->frames[cl->messageAcknowledge & 0x1F].messageAcked <= 0)
                     cl->frames[cl->messageAcknowledge & 0x1F].messageAcked = Sys_Milliseconds();
                 if (cl->header.state == CS_CLIENTLOADING)
-                    SV_ClientEnterWorld(cl, cmds);
+                {
+                    for (i = 0; i < cmdCount && cl->header.state == CS_CLIENTLOADING; ++i)
+                    {
+                        if (cmds[i].serverTime > cl->lastUsercmd.serverTime)
+                            SV_ClientEnterWorld(cl, &cmds[i]);
+                    }
+                    if (cl->header.state == CS_ZOMBIE) return;
+                }
                 if (!sv_pure->current.enabled || cl->pureAuthentic)
                 {
                     if (cl->header.state == CS_ACTIVE)
@@ -1530,6 +1554,7 @@ void __cdecl SV_UserMove(client_t *cl, msg_t *msg, int delta)
                                 && cmds[i].serverTime > cl->lastUsercmd.serverTime)
                             {
                                 SV_ClientThink(cl, &cmds[i]);
+                                if (cl->header.state != CS_ACTIVE) return;
                             }
                         }
                     }
@@ -1748,7 +1773,7 @@ gentity_s *__cdecl SV_AddTestClient()
         "connect \"\\cg_predictItems\\1\\cl_punkbuster\\0\\cl_anonymous\\0\\color\\4\\head\\default\\model\\multi\\snaps\\20\\"
         "rate\\5000\\name\\bot%d\\protocol\\%d\\qport\\%d\"",
         botport,
-        1,
+        live::Protocol,
         botport + 1);
     SV_Cmd_TokenizeString(file);
     *(uint32_t *)a.ip = 0;

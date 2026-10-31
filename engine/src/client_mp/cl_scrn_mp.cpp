@@ -1,3 +1,6 @@
+#ifdef COD4_LIVE_CONTROLLER
+#include <live/controller.h>
+#endif
 #ifndef KISAK_MP
 #error This File is MultiPlayer Only
 #endif
@@ -227,6 +230,9 @@ void __cdecl SCR_DrawScreenField(int localClientNum, int refreshedUI)
 LABEL_26:
     if (!refreshedUI && Key_IsCatcherActive(localClientNum, KEYCATCH_UI))
         UI_Refresh(localClientNum);
+#ifdef COD4_LIVE_CONTROLLER
+    live::controller::Draw();
+#endif
     if (net_showprofile->current.integer)
         Net_DisplayProfile(localClientNum);
 }

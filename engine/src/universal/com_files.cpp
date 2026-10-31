@@ -1,6 +1,7 @@
 #include <universal/q_shared.h>
 #include "com_files.h"
 #include "q_shared.h"
+#include <live/input_policy.h>
 
 #include <universal/com_memory.h>
 #include <qcommon/com_fileaccess.h>
@@ -117,7 +118,7 @@ BOOL __cdecl FS_PureIgnoresExtension(const char *extension)
 {
     if (*extension == 46)
         ++extension;
-    return !I_stricmp(extension, "cfg") || I_stricmp(extension, ".dm_NETWORK_PROTOCOL_VERSION") == 0;
+    return !I_stricmp(extension, "cfg") || !I_stricmp(extension, live::DemoExtension);
 }
 
 char __cdecl FS_FilesAreLoadedGlobally(const char *filename)

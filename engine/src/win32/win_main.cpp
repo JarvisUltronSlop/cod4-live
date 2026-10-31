@@ -397,6 +397,7 @@ void __cdecl  Sys_Quit()
 {
 	Sys_EnterCriticalSection(CRITSECT_COM_ERROR);
 	timeEndPeriod(1);
+	Steam_Shutdown();
 	Sys_SpawnQuitProcess();
 	IN_Shutdown();
 	Key_Shutdown();
@@ -633,9 +634,9 @@ void __cdecl Sys_CreateSplashWindow()
 				0x40000u,
 				"CoD Splash Screen",
 #ifdef KISAK_MP
-				"Call of Duty 4 Multiplayer",
+				"cod4-live",
 #elif KISAK_SP
-				"Call of Duty 4",
+				"cod4-live",
 #endif
 				0x80880000,
 				(screenSize.cx - 320) / 2,
@@ -759,10 +760,15 @@ WinMain
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow) {
 
 	// KISAK: make a pretty console in debug mode, redirect in/out/err stream
-#if 1 || defined(KISAK_DEBUG)
+#if defined(KISAK_DEDICATED) || defined(KISAK_DEBUG)
+    const bool showConsole = true;
+#else
+    const bool showConsole = strstr(lpCmdLine, "-console") != nullptr;
+#endif
+    if (showConsole) {
 	AllocConsole();
 
-	SetConsoleTitleA("KisakCOD");
+	SetConsoleTitleA("cod4-live");
 	DeleteMenu(GetSystemMenu(GetConsoleWindow(), FALSE), SC_CLOSE, MF_BYCOMMAND);
 
 	SetConsoleMode(GetStdHandle(STD_OUTPUT_HANDLE),
@@ -775,7 +781,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	freopen("CONIN$", "r", stdin);
 	freopen("CONOUT$", "w", stdout);
 	freopen("CONOUT$", "w", stderr);
-#endif
+    }
 
 	Sys_InitializeCriticalSections();
 	Sys_InitMainThread();
@@ -843,7 +849,8 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 					Sleep(5);
 				}
 
-				// run the game
+				// Pump client auth callbacks in menus as well as gameplay.
+				Steam_ClientFrame();
 				Com_Frame();
 
 				// LWSS: Punkbuster stuff

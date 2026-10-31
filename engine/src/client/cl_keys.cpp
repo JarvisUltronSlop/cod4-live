@@ -24,6 +24,9 @@
 #include "cl_scrn.h"
 #endif
 #include <universal/profile.h>
+#ifdef COD4_LIVE_CONTROLLER
+#include <live/controller.h>
+#endif
 
 
 keyname_t keynames[96] =
@@ -1116,6 +1119,9 @@ const char *__cdecl Key_KeynumToString(int32_t keynum, int32_t translate)
     keyname_t *kn; // [esp+Ch] [ebp-8h]
     int32_t i; // [esp+10h] [ebp-4h]
 
+#ifdef COD4_LIVE_CONTROLLER
+    if (const auto* name = live::controller::KeyName(keynum, translate != 0)) return name;
+#endif
     if (keynum == -1)
         return "<KEY NOT FOUND>";
     if (keynum >= 0x100)
@@ -1200,6 +1206,9 @@ int32_t __cdecl Key_GetCommandAssignmentInternal(int32_t localClientNum, const c
     twokeys[1] = -1;
     *twokeys = -1;
     count = 0;
+#ifdef COD4_LIVE_CONTROLLER
+    if (live::controller::InUse()) return live::controller::CommandKeys(command, twokeys);
+#endif
     for (keynum = 0; keynum < 256; ++keynum)
     {
         binding = Key_GetBinding(localClientNum, keynum);
@@ -1251,6 +1260,12 @@ void __cdecl Key_Unbind_f()
 
 int32_t __cdecl Key_StringToKeynum(const char *str)
 {
+#ifdef COD4_LIVE_CONTROLLER
+    if (str)
+        for (int key = 0; key < 256; ++key)
+            if (const auto* name = live::controller::KeyName(key, false))
+                if (!I_stricmp(str, name)) return key;
+#endif
     int32_t n2; // [esp+10h] [ebp-Ch]
     int32_t n2a; // [esp+10h] [ebp-Ch]
     int32_t n1; // [esp+14h] [ebp-8h]
@@ -1475,6 +1490,9 @@ bool __cdecl CL_IsConsoleKey(int32_t key)
 void __cdecl CL_KeyEvent(int32_t localClientNum, int32_t key, int32_t down, uint32_t time)
 {
     PROF_SCOPED("CL_KeyEvent");
+#ifdef COD4_LIVE_CONTROLLER
+    if (live::controller::FilterKey(localClientNum, key, down != 0)) return;
+#endif
 
     const char *v4; // eax
     bool v6; // [esp+2Fh] [ebp-421h]

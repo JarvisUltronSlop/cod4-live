@@ -7,6 +7,9 @@
 #include "../client/client.h"
 #include "win_local.h"
 #include <gfx_d3d/r_dvars.h>
+#ifdef COD4_LIVE_CONTROLLER
+#include <live/controller.h>
+#endif
 
 #ifdef KISAK_MP
 #include <client_mp/client_mp.h>
@@ -465,6 +468,9 @@ IN_Shutdown
 */
 void __cdecl IN_Shutdown()
 {
+#ifdef COD4_LIVE_CONTROLLER
+    live::controller::Shutdown();
+#endif
 	IN_DeactivateMouse();
 }
 
@@ -475,6 +481,9 @@ IN_Init
 */
 void __cdecl IN_Init()
 {
+#ifdef COD4_LIVE_CONTROLLER
+    live::controller::Initialize();
+#endif
 	in_mouse = Dvar_RegisterBool("in_mouse", 1, DVAR_ARCHIVE | DVAR_LATCH, "Initialize the mouse drivers");
 	IN_Startup();
 }
@@ -513,6 +522,9 @@ Called every frame, even if not generating commands
 */
 void __cdecl IN_Frame()
 {
+#ifdef COD4_LIVE_CONTROLLER
+    live::controller::Frame(in_appactive != 0);
+#endif
 	if (Dvar_GetBool("ClickToContinue"))
 		PostMessageA(g_wv.hWnd, 0x201u, 1u, 0);
 	if (s_wmv.mouseInitialized)

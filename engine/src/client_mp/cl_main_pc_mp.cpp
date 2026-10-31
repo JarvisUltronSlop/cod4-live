@@ -214,11 +214,7 @@ void __cdecl CL_ServerInfoPacket(netadr_t from, msg_t *msg, int time)
     infoString = MSG_ReadString(msg);
     v3 = Info_ValueForKey(infoString, "protocol");
     prot = atoi(v3);
-    ptr = Dvar_GetString("debug_protocol");
-    if (*ptr)
-        v8 = atoi(ptr);
-    else
-        v8 = 1;
+    v8 = live::Protocol;
     if (prot == v8)
     {
         for (i = 0; i < 16; ++i)
@@ -334,13 +330,13 @@ void __cdecl CL_Connect_f()
                     clc->serverAddress.ip[3],
                     v1);
                 //if (NET_IsLocalAddress(clc->serverAddress) || CL_CDKeyValidate(cl_cdkey, cl_cdkeychecksum))
-                if (NET_IsLocalAddress(clc->serverAddress) || CL_CDKeyValidate(clc->serverAddress))
+                if (CL_CDKeyValidate(clc->serverAddress))
                 {
                     if (Com_HasPlayerProfile())
                     {
                         if (NET_IsLocalAddress(clc->serverAddress))
                         {
-                            clientUIActives[0].connectionState = CA_CHALLENGING;
+                            clientUIActives[0].connectionState = CA_CONNECTING;
                             clc->lastPacketTime = Sys_Milliseconds();
                         }
                         else
@@ -349,6 +345,7 @@ void __cdecl CL_Connect_f()
                         }
                         clientUIActives[0].keyCatchers = KEYCATCH_NONE;
                         clientUIActives[0].displayHUDWithKeycatchUI = 0;
+                        clc->challenge = 0;
                         clc->connectTime = -99999;
                         clc->connectPacketCount = 0;
                         clc->qport = g_qport;
@@ -363,7 +360,7 @@ void __cdecl CL_Connect_f()
                 }
                 else
                 {
-                    Com_Error(ERR_DROP, "EXE_ERR_INVALID_CD_KEY");
+                    Com_Error(ERR_DROP, "Steam verification requires the account that owns CoD4.");
                 }
             }
             else
@@ -444,8 +441,7 @@ void __cdecl CL_GlobalServers_f()
         cls.pingUpdateSource = 1;
         to.type = NA_IP;
         to.port = BigShort(com_masterPort->current.integer);
-        v0 = Cmd_Argv(2);
-        snprintf(command, ARRAYSIZE(command), "getservers %s", v0);
+        snprintf(command, ARRAYSIZE(command), "getservers %d", live::Protocol);
         buffptr = &command[&command[strlen(command) + 1] - &command[1]]; // kiwi: see below what the hell...
         count = Cmd_Argc();
         for (i = 3; i < count; ++i)

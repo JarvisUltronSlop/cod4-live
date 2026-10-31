@@ -533,7 +533,7 @@ void __cdecl SVC_Info(netadr_t from)
     infostring[0] = 0;
     v1 = SV_Cmd_Argv(1);
     Info_SetValueForKey(infostring, "challenge", v1);
-    v2 = va("%i", 1);
+    v2 = va("%i", live::Protocol);
     Info_SetValueForKey(infostring, "protocol", v2);
     Info_SetValueForKey(infostring, "hostname", sv_hostname->current.string);
     Info_SetValueForKey(infostring, "mapname", sv_mapname->current.string);
@@ -1248,10 +1248,7 @@ void SV_PostFrame()
     SV_MasterHeartbeat("COD-4");
 
     // LWSS ADD: Steam Periodic Auth Check
-    if (com_dedicated->current.integer)
-    {
-        Steam_CheckClients();
-    }
+    Steam_CheckClients();
     // LWSS END
     
     {

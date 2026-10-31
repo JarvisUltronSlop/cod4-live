@@ -659,6 +659,7 @@ void __cdecl MSG_SetDefaultUserCmd(playerState_s *ps, usercmd_s *cmd)
     *(uint32_t *)&cmd->weapon = 0;
     cmd->meleeChargeYaw = 0.0;
     *(uint32_t *)&cmd->meleeChargeDist = 0;
+    cmd->inputFlags = 0;
     cmd->weapon = ps->weapon;
     cmd->offHandIndex = ps->offHandIndex;
     for (i = 0; i < 2; ++i)
@@ -691,51 +692,13 @@ void __cdecl MSG_SetDefaultUserCmd(playerState_s *ps, usercmd_s *cmd)
 
 static int __cdecl MSG_HorMoveTo(int iForwardMove, int iRightMove)
 {
-    int iFlags; // [esp+0h] [ebp-4h]
-
-    iFlags = 0;
-    if (iForwardMove <= 10)
-    {
-        if (iForwardMove < -10)
-            iFlags = 2;
-    }
-    else
-    {
-        iFlags = 1;
-    }
-    if (iRightMove > 10)
-        return iFlags | 4;
-    if (iRightMove < -10)
-        return iFlags | 8;
-    return iFlags;
+    return live::PackMove(iForwardMove, iRightMove);
 }
 
-void __cdecl MSG_HorMoveFrom(char iFlags, char *pForwardMove, char *pRightMove)
+void __cdecl MSG_HorMoveFrom(uint16_t packed, char *pForwardMove, char *pRightMove)
 {
-    if ((iFlags & 1) != 0)
-    {
-        *pForwardMove = 127;
-    }
-    else if ((iFlags & 2) != 0)
-    {
-        *pForwardMove = -127;
-    }
-    else
-    {
-        *pForwardMove = 0;
-    }
-    if ((iFlags & 4) != 0)
-    {
-        *pRightMove = 127;
-    }
-    else if ((iFlags & 8) != 0)
-    {
-        *pRightMove = -127;
-    }
-    else
-    {
-        *pRightMove = 0;
-    }
+    *pForwardMove = static_cast<char>(live::UnpackForward(packed));
+    *pRightMove = static_cast<char>(live::UnpackRight(packed));
 }
 
 void __cdecl MSG_WriteDeltaUsercmdKey(msg_t *msg, int key, const usercmd_s *from, const usercmd_s *to)
@@ -788,7 +751,7 @@ void __cdecl MSG_WriteDeltaUsercmdKey(msg_t *msg, int key, const usercmd_s *from
             MSG_WriteKey(msg, keyb, to->buttons, 1u);
             MSG_WriteDeltaKeyShort(msg, keyb, from->angles[0], to->angles[0]);
             MSG_WriteDeltaKeyShort(msg, keyb, from->angles[1], to->angles[1]);
-            MSG_WriteDeltaKey(msg, keyb, horFromMove, horToMove, 4u);
+            MSG_WriteDeltaKey(msg, keyb, horFromMove, horToMove, 16u);
         }
     }
     else
@@ -798,7 +761,7 @@ void __cdecl MSG_WriteDeltaUsercmdKey(msg_t *msg, int key, const usercmd_s *from
         MSG_WriteKey(msg, key, to->buttons, 1u);
         MSG_WriteDeltaKeyShort(msg, key, from->angles[0], to->angles[0]);
         MSG_WriteDeltaKeyShort(msg, key, from->angles[1], to->angles[1]);
-        MSG_WriteDeltaKey(msg, key, horFromMove, horToMove, 4u);
+        MSG_WriteDeltaKey(msg, key, horFromMove, horToMove, 16u);
         keya = to->serverTime ^ key;
         MSG_WriteDeltaKeyShort(msg, keya, from->angles[2], to->angles[2]);
         MSG_WriteDeltaKey(msg, keya, from->buttons >> 1, to->buttons >> 1, 0x14u);
@@ -819,12 +782,14 @@ void __cdecl MSG_WriteDeltaUsercmdKey(msg_t *msg, int key, const usercmd_s *from
             MSG_WriteDeltaKey(msg, keya, from->meleeChargeDist, to->meleeChargeDist, 8u);
         }
     }
+    // Always visit this field: input status can change while gameplay fields are idle.
+    MSG_WriteDeltaKey(msg, to->serverTime ^ key, from->inputFlags, to->inputFlags, 8u);
 }
 
 void __cdecl MSG_ReadDeltaUsercmdKey(msg_t *msg, int key, const usercmd_s *from, usercmd_s *to)
 {
-    char horToMove; // [esp+Ch] [ebp-8h]
-    char horToMovea; // [esp+Ch] [ebp-8h]
+    uint16_t horToMove;
+    uint16_t horToMovea;
     int horFromMove; // [esp+10h] [ebp-4h]
     int horFromMovea; // [esp+10h] [ebp-4h]
     int keyb; // [esp+20h] [ebp+Ch]
@@ -847,7 +812,7 @@ void __cdecl MSG_ReadDeltaUsercmdKey(msg_t *msg, int key, const usercmd_s *from,
             to->angles[0] = (uint16_t)MSG_ReadDeltaKeyShort(msg, key, from->angles[0]);
             to->angles[1] = (uint16_t)MSG_ReadDeltaKeyShort(msg, key, from->angles[1]);
             horFromMovea = MSG_HorMoveTo(from->forwardmove, from->rightmove);
-            horToMovea = MSG_ReadDeltaKey(msg, key, horFromMovea, 4u);
+            horToMovea = MSG_ReadDeltaKey(msg, key, horFromMovea, 16u);
             MSG_HorMoveFrom(horToMovea, &to->forwardmove, &to->rightmove);
             keya = to->serverTime ^ key;
             to->angles[2] = (uint16_t)MSG_ReadDeltaKeyShort(msg, keya, from->angles[2]);
@@ -892,10 +857,12 @@ void __cdecl MSG_ReadDeltaUsercmdKey(msg_t *msg, int key, const usercmd_s *from,
             to->angles[0] = (uint16_t)MSG_ReadDeltaKeyShort(msg, keyb, from->angles[0]);
             to->angles[1] = (uint16_t)MSG_ReadDeltaKeyShort(msg, keyb, from->angles[1]);
             horFromMove = MSG_HorMoveTo(from->forwardmove, from->rightmove);
-            horToMove = MSG_ReadDeltaKey(msg, keyb, horFromMove, 4u);
+            horToMove = MSG_ReadDeltaKey(msg, keyb, horFromMove, 16u);
             MSG_HorMoveFrom(horToMove, &to->forwardmove, &to->rightmove);
         }
     }
+    to->inputFlags = static_cast<uint8_t>(MSG_ReadDeltaKey(msg, to->serverTime ^ key, from->inputFlags, 8u));
+    if (!live::ValidInput(to->inputFlags)) msg->overflowed = 1;
 }
 
 void __cdecl MSG_ClearLastReferencedEntity(msg_t *msg)

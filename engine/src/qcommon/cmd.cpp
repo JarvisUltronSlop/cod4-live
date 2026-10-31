@@ -1,3 +1,6 @@
+#ifdef COD4_LIVE_CONTROLLER
+#include <live/controller.h>
+#endif
 #include <universal/q_shared.h>
 #include "cmd.h"
 
@@ -1171,6 +1174,9 @@ void __cdecl Cmd_ForEach(void(__cdecl *callback)(const char *))
 
 void __cdecl Cmd_ComErrorCleanup()
 {
+#ifdef COD4_LIVE_CONTROLLER
+    live::controller::ResetDispatch();
+#endif
     int32_t  client; // [esp+0h] [ebp-4h]
 
     Cmd_ResetArgs(&cmd_args, &cmd_argsPrivate);
@@ -1204,6 +1210,9 @@ void __cdecl Cmd_ExecuteSingleCommand(int32_t  localClientNum, int32_t  controll
             Cmd_CheckNotify();
 #endif
             arg0 = Cmd_Argv(0);
+#ifdef COD4_LIVE_CONTROLLER
+            if (!live::controller::AllowCommand(arg0)) goto LABEL_26;
+#endif
             for (itr = cmd_functions; itr->next; itr = itr->next)
             {
                 if (!I_stricmp(arg0, itr->name))

@@ -1,5 +1,6 @@
 #include <universal/q_shared.h>
 #include "r_init.h"
+#include <shellapi.h>
 #include <qcommon/mem_track.h>
 #include <qcommon/threads.h>
 #include <win32/win_local.h>

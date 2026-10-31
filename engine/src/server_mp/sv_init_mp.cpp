@@ -1,3 +1,4 @@
+#include <win32/win_steam.h>
 #ifndef KISAK_MP
 #error This File is MultiPlayer Only
 #endif
@@ -669,7 +670,10 @@ void __cdecl SV_Init()
     SV_AddOperatorCommands();
     sv_gametype = Dvar_RegisterString("g_gametype", "war", DVAR_SERVERINFO | DVAR_LATCH, "Current game type");
     Dvar_RegisterString("sv_keywords", (char *)"", DVAR_SERVERINFO, "Server keywords");
-    Dvar_RegisterInt("protocol", 1, (DvarLimits)0x100000001LL, DVAR_SERVERINFO | DVAR_ROM, "Protocol version");
+    DvarLimits protocolLimits{};
+    protocolLimits.integer.min = live::Protocol;
+    protocolLimits.integer.max = live::Protocol;
+    Dvar_RegisterInt("protocol", live::Protocol, protocolLimits, DVAR_SERVERINFO | DVAR_ROM, "cod4-live protocol version");
     sv_mapname = Dvar_RegisterString("mapname", (char *)"", DVAR_SERVERINFO | DVAR_ROM, "Current map name");
     sv_privateClients = Dvar_RegisterInt(
         "sv_privateClients",
@@ -862,6 +866,7 @@ void __cdecl SV_Shutdown(const char *finalmsg)
         SV_MasterShutdown();
         SV_ShutdownGameProgs();
         SV_DropAllClients();
+        Steam_ServerShutdown();
         SV_WriteEntityFieldNumbers();
         SV_FreeClients();
         SV_ClearServer();

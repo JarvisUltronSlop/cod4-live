@@ -159,7 +159,7 @@ double __cdecl CG_GetViewFov(int32_t localClientNum)
     }
     else
     {
-        viewFov = cg_fov->current.value;
+        viewFov = live::BaseFov;
         if (viewFov < 1.0 || viewFov > 160.0)
             MyAssertHandler(
                 ".\\cgame_mp\\cg_view_mp.cpp",
@@ -197,13 +197,13 @@ double __cdecl CG_GetViewFov(int32_t localClientNum)
     }
     if ((cgameGlob->predictedPlayerState.eFlags & 0x300) != 0)
         viewFov = 55.0;
-    viewFova = viewFov * cg_fovScale->current.value;
-    value = cg_fovMin->current.value;
+    viewFova = viewFov * live::ClampFovScale(cg_fovScale->current.value);
+    value = 10.0f;
     v3 = value - viewFova;
     if (v3 < 0.0)
-        return viewFova;
+        return live::ClampFov(viewFova);
     else
-        return value;
+        return live::ClampFov(value);
 }
 
 void __cdecl CG_ViewRegisterDvars()
@@ -448,6 +448,9 @@ void __cdecl CG_UpdateFov(int32_t localClientNum, float fov_x)
     cgameGlob = CG_GetLocalClientGlobals(localClientNum);
     cgs = CG_GetLocalClientStaticGlobals(localClientNum);
 
+    // All view paths (including killcams) share this last guard before projection.
+    // CoD4 expresses this angle at 4:3; widescreen retains its native aspect expansion.
+    fov_x = live::ClampFov(fov_x);
     dxDzAtDefaultAspectRatio = tan(DEG2RAD(fov_x) * 0.5);
     dyDz = dxDzAtDefaultAspectRatio * 0.75;
     dxDz = dyDz * cgs->viewAspect;
@@ -455,7 +458,7 @@ void __cdecl CG_UpdateFov(int32_t localClientNum, float fov_x)
     cgameGlob->refdef.tanHalfFovY = dyDz;
     //cgameGlob->zoomSensitivity = dxDzAtDefaultAspectRatio / 0.6370702385902405;
     // LWSS: this was pre-computed for 65, but i'm changing it to match SP and other versions
-    cgameGlob->zoomSensitivity = dxDzAtDefaultAspectRatio / tan(DEG2RAD(cg_fov->current.value) * 0.5f);
+    cgameGlob->zoomSensitivity = dxDzAtDefaultAspectRatio / tan(DEG2RAD(live::BaseFov) * 0.5f);
 }
 
 void __cdecl CG_UpdateHelicopterKillCamDof(float distance, GfxDepthOfField *dof)

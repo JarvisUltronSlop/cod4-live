@@ -12,6 +12,10 @@
 #include <qcommon/cmd.h>
 #include <cgame_mp/cg_local_mp.h>
 #include <devgui/devgui.h>
+#ifdef COD4_LIVE_CONTROLLER
+#include <live/controller.h>
+#include <live/input_policy.h>
+#endif
 
 
 const dvar_t *cl_stanceHoldTime;
@@ -76,6 +80,13 @@ int __cdecl CL_MouseEvent(int x, int y, int dx, int dy)
 {
     clientActive_t *LocalClientGlobals; // [esp+0h] [ebp-8h]
 
+#ifdef COD4_LIVE_CONTROLLER
+    if (live::controller::FilterMouse(dx, dy))
+    {
+        CL_ShowSystemCursor(0);
+        return 1;
+    }
+#endif
     if (DevGui_IsActive())
     {
         DevGui_MouseEvent(dx, dy);
@@ -345,7 +356,6 @@ void __cdecl CL_CreateCmdsDuringConnection(int localClientNum)
 void __cdecl CL_CreateNewCommands(int localClientNum)
 {
     usercmd_s result; // [esp+8h] [ebp-48h] BYREF
-    _BYTE v2[32]; // [esp+28h] [ebp-28h] BYREF
     clientActive_t *LocalClientGlobals; // [esp+48h] [ebp-8h]
     int cmdNum; // [esp+4Ch] [ebp-4h]
 
@@ -353,8 +363,7 @@ void __cdecl CL_CreateNewCommands(int localClientNum)
     {
         LocalClientGlobals = CL_GetLocalClientGlobals(localClientNum);
         cmdNum = ++LocalClientGlobals->cmdNumber & 0x7F;
-        memcpy(v2, CL_CreateCmd(&result, localClientNum), sizeof(v2));
-        memcpy(&LocalClientGlobals->cmds[cmdNum], v2, sizeof(LocalClientGlobals->cmds[cmdNum]));
+        LocalClientGlobals->cmds[cmdNum] = *CL_CreateCmd(&result, localClientNum);
     }
 }
 
@@ -366,13 +375,25 @@ usercmd_s *__cdecl CL_CreateCmd(usercmd_s *result, int localClientNum)
 
     LocalClientGlobals = CL_GetLocalClientGlobals(localClientNum);
     oldAngles = LocalClientGlobals->viewangles[0];
+#ifndef COD4_LIVE_CONTROLLER
     CL_AdjustAngles(localClientNum);
+#endif
     memset(&cmd, 0, sizeof(cmd));
+#ifdef COD4_LIVE_CONTROLLER
+    cmd.inputFlags = live::controller::BeginCommand();
+#endif
     if (!Key_IsCatcherActive(localClientNum, KEYCATCH_LOCATION_SELECTION) || !CG_HandleLocationSelectionInput(localClientNum, &cmd))
     {
         CL_CmdButtons(localClientNum, &cmd);
         CL_KeyMove(localClientNum, &cmd);
+#ifdef COD4_LIVE_CONTROLLER
+        // Digital controller bindings still use the native stance/button code.
+        // Analog movement replaces its keyboard axes; no mouse update runs here.
+        cmd.forwardmove = cmd.rightmove = 0;
+        live::controller::Move(localClientNum, cmd);
+#else
         CL_MouseMove(localClientNum, &cmd);
+#endif
         if (LocalClientGlobals->viewangles[0] - oldAngles <= 90.0)
         {
             if (oldAngles - LocalClientGlobals->viewangles[0] > 90.0)
@@ -391,6 +412,19 @@ usercmd_s *__cdecl CL_CreateCmd(usercmd_s *result, int localClientNum)
         }
     }
     CL_FinishMove(localClientNum, &cmd);
+#ifdef COD4_LIVE_CONTROLLER
+    // Match server neutralization and prediction, even for mixed-input frames.
+    if (live::InputPolicy::BlockGameplay(cmd.inputFlags) || live::controller::MenuOpen())
+    {
+        cmd.buttons = 0;
+        cmd.forwardmove = cmd.rightmove = 0;
+        cmd.meleeChargeYaw = 0;
+        cmd.meleeChargeDist = 0;
+    }
+#endif
+    #ifdef COD4_LIVE_CONTROLLER
+    live::controller::EndCommand();
+    #endif
     memcpy(result, &cmd, sizeof(usercmd_s));
     return result;
 }
@@ -812,7 +846,13 @@ char __cdecl CG_HandleLocationSelectionInput(int localClientNum, usercmd_s *cmd)
         frametime = (double)cgameGlob->frametime * EQUAL_EPSILON;
         mapAspectRatio = cgameGlob->compassMapWorldSize[0] / cgameGlob->compassMapWorldSize[1];
         LocalClientGlobals = CL_GetLocalClientGlobals(localClientNum);
+#ifdef COD4_LIVE_CONTROLLER
+        mx = my = 0;
+        live::controller::LocationMove(localClientNum, cgameGlob->selectedLocation[0],
+            cgameGlob->selectedLocation[1], frametime, mapAspectRatio);
+#else
         CL_GetMouseMovement(LocalClientGlobals, &mx, &my);
+#endif
         cgameGlob->selectedLocation[0] = mx * cg_mapLocationSelectionCursorSpeed->current.value * frametime * (float)0.1
             + cgameGlob->selectedLocation[0];
         cgameGlob->selectedLocation[1] = my

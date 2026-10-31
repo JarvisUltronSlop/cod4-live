@@ -502,8 +502,10 @@ char __cdecl R_Cinematic_StartPlayback_Now(const char *filename, uint32_t playba
     BinkSetSoundSystem(BinkOpenMiles, (uint32_t)Driver);
     R_Cinematic_CheckBinkError();
 #else
-    // KISAK_OPENAL TODO: Bink has no OpenAL sound-system adapter.
-    // Cinematics currently play without synced audio under OpenAL.
+    // Retail Bink exposes its own synchronized WaveOut adapter. Gameplay audio
+    // remains on OpenAL and no Miles driver or incompatible Miles ABI is needed.
+    BinkSoundUseWaveOut();
+    R_Cinematic_CheckBinkError();
 #endif
     BinkSetSoundTrack(5, TrackIDsToPlay);
     R_Cinematic_CheckBinkError();

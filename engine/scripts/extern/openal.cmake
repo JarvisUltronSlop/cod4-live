@@ -37,8 +37,7 @@ option ( ALSOFT_INSTALL_UTILS "" OFF )
 FetchContent_Declare (
 	openal
 	GIT_REPOSITORY https://github.com/kcat/openal-soft.git
-	GIT_TAG 1.25.2
-	GIT_SHALLOW TRUE
+	GIT_TAG b2c48f7718ef3fcf67921a8b6534c4914e328970 # 1.25.2
 	GIT_PROGRESS TRUE
 )
 FetchContent_MakeAvailable ( openal )

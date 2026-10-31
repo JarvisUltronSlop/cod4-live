@@ -337,9 +337,6 @@ void __cdecl SV_AddOperatorCommands()
         if (com_dedicated->current.integer)
         {
             SV_AddDedicatedCommands();
-            // LWSS ADD
-            Steam_SV_AddTestCommands();
-            // LWSS END
         }
         Cmd_AddCommandInternal("scriptUsage", Cbuf_AddServerText_f, &SV_ScriptUsage_f_VAR);
         Cmd_AddServerCommandInternal("scriptUsage", SV_ScriptUsage_f, &SV_ScriptUsage_f_VAR_SERVER);

@@ -5730,11 +5730,7 @@ void __cdecl UI_StartServerRefresh(int localClientNum, int full)
             if (ui_netSource->current.integer == 1)
             {
                 i = 0;
-                ptr = Dvar_GetVariantString("debug_protocol");
-                if (strlen(ptr))
-                    v10 = va("globalservers %d %s full empty\n", i, ptr);
-                else
-                    v10 = va("globalservers %d %d full empty\n", i, 1);
+                v10 = va("globalservers %d %d full empty\n", i, live::Protocol);
                 v5 = CL_ControllerIndexFromClientNum(localClientNum);
                 Cmd_ExecuteSingleCommand(localClientNum, v5, v10);
             }

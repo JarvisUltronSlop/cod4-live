@@ -1,3 +1,6 @@
+#ifdef COD4_LIVE_CONTROLLER
+#include <live/controller.h>
+#endif
 #include <universal/q_shared.h>
 #include "ui_shared.h"
 #include <universal/q_parse.h>
@@ -2149,7 +2152,11 @@ int __cdecl Item_SetFocus(UiContext *dc, itemDef_s *item, float x, float y)
         r.y = r.y - r.h;
         r.horzAlign = textRect->horzAlign;
         r.vertAlign = textRect->vertAlign;
-        if (Rect_ContainsPoint(dc->localClientNum, &r, x, y))
+        if (
+#ifdef COD4_LIVE_CONTROLLER
+            live::controller::NavigatingMenu() ||
+#endif
+            Rect_ContainsPoint(dc->localClientNum, &r, x, y))
         {
             Window_AddDynamicFlags(dc->localClientNum, &item->window, 2);
         }

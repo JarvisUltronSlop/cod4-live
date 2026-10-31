@@ -361,15 +361,15 @@ void __cdecl CG_RegisterDvars()
         (DvarLimits)0x7FFFFFFF00000000LL,
         DVAR_ARCHIVE,
         "Time in milliseconds for the cursor hint to fade");
-    min.value.max = 120.0f;
-    min.value.min = 65.0f;
-    cg_fov = Dvar_RegisterFloat("cg_fov", 65.0f, min, DVAR_ARCHIVE, "The field of view angle in degrees");
-    mina.value.max = 2.0f;
-    mina.value.min = 0.2f;
-    cg_fovScale = Dvar_RegisterFloat("cg_fovScale", 1.0f, mina, DVAR_CHEAT, "Scale applied to the field of view");
-    minb.value.max = 160.0f;
-    minb.value.min = 1.0f;
-    cg_fovMin = Dvar_RegisterFloat("cg_fovMin", 10.0f, minb, DVAR_CHEAT, "The minimum possible field of view");
+    min.value.max = live::BaseFov;
+    min.value.min = live::BaseFov;
+    cg_fov = Dvar_RegisterFloat("cg_fov", live::BaseFov, min, DVAR_ROM, "cod4-live fixed base field of view");
+    mina.value.max = live::MaxFovScale;
+    mina.value.min = 1.0f;
+    cg_fovScale = Dvar_RegisterFloat("cg_fovScale", 1.0f, mina, DVAR_ARCHIVE, "Field of view scale (65 to 90 degrees at 4:3)");
+    minb.value.max = 10.0f;
+    minb.value.min = 10.0f;
+    cg_fovMin = Dvar_RegisterFloat("cg_fovMin", 10.0f, minb, DVAR_ROM, "The minimum possible field of view");
     cg_draw2D = Dvar_RegisterBool("cg_draw2D", 1, DVAR_CHEAT, "Draw 2D screen elements");
     cg_drawHealth = Dvar_RegisterBool("cg_drawHealth", 0, DVAR_CHEAT, "Draw health bar");
     cg_drawBreathHint = Dvar_RegisterBool("cg_drawBreathHint", 1, DVAR_ARCHIVE, "Draw a 'hold breath to steady' hint");

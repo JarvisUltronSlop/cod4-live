@@ -219,3 +219,7 @@ be adjusted on the earlier separate page. Bot Count and Bot Difficulty now use
 inline native rows in Start New Server, immediately below Maximum Players; the
 user also confirmed these inline controls work with the DualSense.
 The remaining acceptance checks are tracked in VALIDATION.md.
+
+The user subsequently confirmed the focused one-bot Shipment ADS-snap test and,
+after the prompt fixes, the Square glyphs and actions for weapon pickup, reload
+and skipping killcam. These checks used the native USB DualSense backend.

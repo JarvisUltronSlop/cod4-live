@@ -127,14 +127,15 @@ remaining acceptance cases below are not claimed as passed.
   list. After a focused one-bot Shipment match, the user confirmed the LT snap
   behavior works, including the fresh-press and held-ADS checks. The remaining
   issue reported in that test was keyboard labels in gameplay action prompts.
+- After the shared binding lookup and remaining stock prompt fixes, the user
+  confirmed weapon pickup, reload and killcam skip display the expected Square
+  glyph and work correctly with the DualSense in the updated Shipment test.
 - Valve's dedicated runtime helper downloaded app 1007 directly from Valve,
   checked its signatures and x86 DLLs, and passed anonymous server API login
   while loading the downloaded local steamclient.dll.
 
 ## Acceptance still required
 
-- Check the revised gameplay controller glyphs on live weapon-pickup and
-  killcam prompts. Desktop control is currently paused after Escape.
 - Broaden physical checks to short taps, held actions, scoreboard, all class/team
   menus, location selection, hotplug and vibration across the other backends.
 - Xbox/XInput hardware, PlayStation Bluetooth, and Steam Input virtual-gamepad

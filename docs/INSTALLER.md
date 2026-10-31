@@ -30,8 +30,9 @@ layouts. Virtual Xbox output may use Xbox prompts even with a PlayStation device
 
 ## Hosting
 
-The native **Bot Warfare** menu on the host/start-server screens sets bot count
-and difficulty. Zero disables bots. One slot always remains available for a human;
+The native **Start New Server** list has **BOTS** and **BOT DIFFICULTY** rows
+directly below **Maximum Players**. Use left/right to adjust them. Zero disables
+bots. One slot always remains available for a human;
 the maximum follows the selected server capacity (31 bots at 32 slots, or 63 at
 64 slots). **Controller** opens native settings pages with IW4x glyphs, layout
 profiles, sensitivity presets and custom settings. Keyboard/mouse menus remain

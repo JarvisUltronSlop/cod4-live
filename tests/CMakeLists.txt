@@ -80,6 +80,17 @@ add_executable(crosshair_scan_tests "${CMAKE_CURRENT_LIST_DIR}/crosshair_scan_te
 target_compile_features(crosshair_scan_tests PRIVATE cxx_std_20)
 target_include_directories(crosshair_scan_tests PRIVATE "${CMAKE_CURRENT_BINARY_DIR}")
 add_test(NAME crosshair_scan COMMAND crosshair_scan_tests)
+set(native_enum_source "${CMAKE_CURRENT_BINARY_DIR}/generated_native_enum.inc")
+add_custom_command(OUTPUT "${native_enum_source}"
+    COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_LIST_DIR}/extract_native_enum.py"
+        "${CMAKE_CURRENT_LIST_DIR}/../engine/src/ui/ui_shared.cpp" "${native_enum_source}"
+    DEPENDS "${CMAKE_CURRENT_LIST_DIR}/extract_native_enum.py"
+        "${CMAKE_CURRENT_LIST_DIR}/../engine/src/ui/ui_shared.cpp"
+    VERBATIM)
+add_executable(native_enum_tests "${CMAKE_CURRENT_LIST_DIR}/native_enum_tests.cpp" "${native_enum_source}")
+target_compile_features(native_enum_tests PRIVATE cxx_std_20)
+target_include_directories(native_enum_tests PRIVATE "${CMAKE_CURRENT_BINARY_DIR}" "${CMAKE_CURRENT_LIST_DIR}/../engine/src")
+add_test(NAME native_enum COMMAND native_enum_tests)
 add_test(NAME controller_assets COMMAND "${Python3_EXECUTABLE}"
     "${CMAKE_CURRENT_LIST_DIR}/../scripts/convert-controller-images.py" --check)
 set(codec_source "${CMAKE_CURRENT_BINARY_DIR}/generated_usercmd_codec.cpp")

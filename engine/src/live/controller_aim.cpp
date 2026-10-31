@@ -8,6 +8,7 @@
 #include <aim_assist/aim_assist.h>
 #include <bgame/bg_local.h>
 #include <cgame_mp/cg_local_mp.h>
+#include <client_mp/client_mp.h>
 #include <script/scr_const.h>
 #include <EffectsCore/fx_system.h>
 
@@ -116,12 +117,14 @@ SnapDelta ApplyAdsSnap(const AimInput& input,const AimOutput& output,AimAssistGl
             if(!adsSnap.Active()) break;
         }
     }
+    const auto* client=CL_GetLocalClientGlobals(input.localClientNum);
     const auto result=adsSnap.Update(ads,static_cast<int>(weaponIndex),allowed,
         std::span<const SnapTarget>(candidates.data(),count),range,
         aa.tweakables.autoAimRegionWidth,aa.tweakables.autoAimRegionHeight,
-        // Correct the command being built, including this frame's stick input.
-        // Render-derived aa.viewAngles may lag and would repeat old corrections.
-        output.pitch,output.yaw,input.deltaTime);
+        // Use the current processed command in WORLD angle space. Client view
+        // angles exclude the spawn delta and kick/offset later added by pmove.
+        SnapCommandWorldAngle(output.pitch,input.ps->delta_angles[0],client->cgameKickAngles[0]),
+        SnapCommandWorldAngle(output.yaw,input.ps->delta_angles[1],client->cgameKickAngles[1]),input.deltaTime);
     aa.autoAimPressed=ads;
     aa.autoAimActive=adsSnap.Active();
     aa.autoAimTargetEnt=adsSnap.Active()?adsSnap.Target():ENTITYNUM_NONE;

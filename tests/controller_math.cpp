@@ -173,6 +173,24 @@ int main()
     snap.Reset(); step(false,{});
     Check(!step(true,{}).applied&&!step(true,initial).applied,
         "an ADS edge with no eligible target must be consumed");
+    {
+        AdsSnap basis;
+        auto point=snapTarget; point.pitch=10; point.yaw=90;
+        const std::array<SnapTarget,1> target{point};
+        const float pitch=SnapCommandWorldAngle(-10,17,3);
+        const float yaw=SnapCommandWorldAngle(-100,180,10);
+        basis.Update(false,1,true,target,1000,.1f,.1f,pitch,yaw,.016f);
+        const auto delta=basis.Update(true,1,true,target,1000,.1f,.1f,pitch,yaw,.016f);
+        Check(delta.applied&&std::abs(delta.pitch)<.0001f&&std::abs(delta.yaw)<.0001f,
+            "aligned world aim must not snap by spawn delta or camera kick/offset");
+        point.yaw=100;
+        const std::array<SnapTarget,1> offsetTarget{point};
+        basis.Update(false,1,true,offsetTarget,1000,.1f,.1f,pitch,yaw,.016f);
+        const auto correction=basis.Update(true,1,true,offsetTarget,1000,.1f,.1f,pitch,yaw,.016f);
+        Check(correction.yaw>0&&correction.yaw<10&&
+            SnapCommandWorldAngle(-100+correction.yaw,180,10)>90,
+            "world correction must advance the actual command toward the target with nonzero offsets");
+    }
     for(int frames:{3,6,12,25}) {
         AdsSnap timed; float pitch=0,yaw=0;
         auto moving=snapTarget; moving.pitch=40; moving.yaw=-179;
@@ -189,8 +207,10 @@ int main()
     }
     const auto wrapper=NativeMenuLinks("main",true,false,false,false);
     const auto foreground=NativeMenuLinks("main_text",false,false,false,false);
-    Check(!wrapper.controller&&!wrapper.bots&&foreground.controller&&foreground.bots,
-        "CoD4 entries must belong to foreground main_text instead of its hidden wrapper");
+    Check(!wrapper.controller&&!wrapper.bots&&foreground.controller&&!foreground.bots,
+        "Controller belongs to foreground main_text; bot settings belong only to Host Game");
+    const auto host=NativeMenuLinks("createserver",false,false,true,false);
+    Check(host.bots&&!host.controller,"Host Game must receive inline bot settings without a separate page link");
     for(const auto name:{"main_controls","MAIN_OPTIONS"}) {
         const auto links=NativeMenuLinks(name,false,false,false,false);
         Check(links.controller&&!links.bots,"stock Controls and Options must expose controller settings");

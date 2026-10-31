@@ -34,6 +34,11 @@ inline bool SnapEligible(const SnapTarget& target,float range,float width,float 
 inline float SnapAngleDelta(float target,float current) {
     return std::remainder(target-current,360.0f);
 }
+inline float SnapCommandWorldAngle(float command,float playerDelta,float kickAndOffset) {
+    // CL_FinishMove adds cgameKickAngles; PM_UpdateViewAngles then adds the
+    // player's spawn/view delta. Snap targets are already in that world basis.
+    return command+playerDelta+kickAndOffset;
+}
 struct SnapDelta { float pitch{},yaw{}; bool applied{}; int entity{-1}; };
 class AdsSnap {
     bool held_{true},active_{};

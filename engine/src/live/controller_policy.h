@@ -45,7 +45,7 @@ inline MenuLinks NativeMenuLinks(std::string_view name, bool delegatesMainText,
     const bool main=equal("main_text")||(equal("main")&&!delegatesMainText);
     options|=equal("main_controls")||equal("main_options")||equal("options")||
         equal("options_menu")||equal("options_multi")||equal("setup_menu2");
-    return {main||options||pause,main||host||pause};
+    return {main||options||pause,host};
 }
 // The legacy mouse poll emits an event even when the cursor did not move.
 // Routing that event into UI hover clears controller-selected item focus.

@@ -7,9 +7,9 @@ remaining acceptance cases below are not claimed as passed.
 ## Build and automated checks
 
 - Full multiplayer client and dedicated server compile and link successfully.
-- Eleven engine CTest suites pass: controller-math, input_policy, bot_policy,
+- Twelve engine CTest suites pass: controller-math, input_policy, bot_policy,
   damage_callback, script_variables, script_references, crosshair_scan,
-  controller_assets, usercmd_codec, server_input, and steam_auth. The separate
+  native_enum, controller_assets, usercmd_codec, server_input, and steam_auth. The separate
   installer suite also passes.
 - Controller tests exercise the vendored IW4x calculations, radial deadzones,
   stick layouts, inversion, slowdown, relative-motion rotation, short-tap
@@ -20,9 +20,14 @@ remaining acceptance cases below are not claimed as passed.
   disabled; this does not validate every accelerated aiming trace.
 - ADS-snap production-state tests cover press/release/repress, no held retarget,
   blocked/frozen resets, target eligibility, range and region bounds, occlusion,
-  smoke thresholds, weapon changes, angle wrapping, the 200 ms activation limit,
+  smoke thresholds, weapon changes, angle wrapping, spawn/recoil angle offsets,
+  the 200 ms activation limit,
   and frame-rate-independent convergence. Crosshair tests compile the production
   scan and cover actual-hit team classification, range, flashbang and smoke.
+- Native enum tests compile the production menu key routing and value handler.
+  They cover left/right, Enter, focus, release, hidden/disabled controls, and
+  one-slot and 64-slot domains. Bot Count and Bot Difficulty now appear directly
+  after Maximum Players in the host list and its controller focus order.
 - Protocol tests compile production serialization code, cover all signed-byte
   axis pairs, both encoding branches, metadata-only changes, chained commands,
   malformed flags, and truncation. Server tests compile production enforcement
@@ -71,8 +76,9 @@ remaining acceptance cases below are not claimed as passed.
   confirmation above predates these pages and image glyphs. Later visual checks
   verified the general Controller page and all 16 PlayStation mapping glyphs.
   A main-menu layering issue was fixed: the selectable entries now live in
-  CoD4's foreground `main_text` menu, with regression coverage. Both new main-menu
-  entries are visible, and clicking Controller opens its settings page.
+  CoD4's foreground `main_text` menu, with regression coverage. Clicking Controller
+  opens its settings page. The temporary Bot Warfare entry was subsequently
+  replaced with inline host settings at the user's request.
 - The user subsequently confirmed that DualSense navigation works in the new
   Controller menus. The Bot Warfare page was visually checked with separate count
   and difficulty rows, the capacity-minus-one limit, and PlayStation footer glyphs.
@@ -109,9 +115,10 @@ remaining acceptance cases below are not claimed as passed.
 
 ## Acceptance still required
 
-- Complete the new LT-snap playtest and corrected host-capacity selector checks.
-  Computer Use resumed after an earlier Escape pause; the visual and physical
-  checks above have now completed.
+- Complete the new LT-snap playtest and inline host-count/difficulty checks.
+  The earlier zero-only bot count was a one-player capacity left by a boundary
+  test, confirmed from the live dvars. The next manual test starts at capacity
+  64 with seven bots. Desktop control is currently paused after Escape.
 - Broaden physical checks to short taps, held actions, scoreboard, all class/team
   menus, location selection, hotplug and vibration across the other backends.
 - Xbox/XInput hardware, PlayStation Bluetooth, and Steam Input virtual-gamepad

@@ -39,11 +39,17 @@ int inspected{};
 char footer[256]{}, deviceStatus[128]{};
 std::array<std::array<char, 160>, 16> bindingText{};
 struct Extension {
+    struct Expression {
+        std::vector<expressionEntry> entries;
+        std::vector<expressionEntry*> pointers;
+    };
     menuDef_t* menu{};
     itemDef_s** original{};
     int originalCount{};
     std::vector<itemDef_s*> pointers;
     std::vector<std::unique_ptr<itemDef_s>> items;
+    std::vector<std::unique_ptr<Expression>> expressions;
+    std::vector<std::unique_ptr<std::string>> scripts;
 };
 std::vector<Extension> extensions;
 constexpr const char* layoutValues[]{"buttons_default", "buttons_tactical", "buttons_lefty", "buttons_nomad",
@@ -124,17 +130,80 @@ bool Contains(const char* text,const char* fragment) {
 }
 void Extend(menuDef_t* menu,bool controller,bool bots) {
     Extension extension; extension.menu=menu; extension.original=menu->items; extension.originalCount=menu->itemCount;
-    extension.pointers.assign(menu->items,menu->items+menu->itemCount);
-    for(auto*& original:extension.pointers) {
-        if(original->dvar&&!I_stricmp(original->dvar,"sv_maxclients")) {
-            auto item=std::make_unique<itemDef_s>(*original);
-            bots_ui::ConfigureCapacityItem(item.get());
-            original=item.get(); extension.items.push_back(std::move(item));
+    const itemDef_s* capacity=nullptr;
+    for(int i=0;i<menu->itemCount;++i)
+        if(menu->items[i]->dvar&&!I_stricmp(menu->items[i]->dvar,"sv_maxclients")) capacity=menu->items[i];
+    const bool inlineBots=bots&&capacity;
+    auto copy=[&](const itemDef_s* source,float dy) {
+        auto item=std::make_unique<itemDef_s>(*source);
+        item->window.rect.y+=dy; item->window.rectClient.y+=dy;
+        item->window.dynamicFlags[0]&=~3;
+        item->textRect[0]={};
+        auto* result=item.get();
+        extension.items.push_back(std::move(item));
+        return result;
+    };
+    auto appendBotRows=[&] {
+        for(int row=0;row<2;++row) {
+            const int highlight=64+row;
+            auto focus=std::make_unique<std::string>("play mouse_over ; setLocalVarInt ui_highlight "+
+                std::to_string(highlight)+" ; setLocalVarString ui_choicegroup "+menu->window.name+" ;");
+            const char* onFocus=focus->c_str(); extension.scripts.push_back(std::move(focus));
+            // Copy the six stock row parts in their original order: normal
+            // gray background, highlight, label, then the value control.
+            for(int n=0;n<menu->itemCount;++n) {
+                const auto* source=menu->items[n];
+                if(source->window.rectClient.horzAlign!=capacity->window.rectClient.horzAlign||
+                    source->window.rectClient.y!=capacity->window.rectClient.y||
+                    source->window.rectClient.x<0||source->window.rectClient.x>=capacity->window.rectClient.w) continue;
+                auto* item=copy(source,24.f*(row+1));
+                item->rectYExp={};
+                if(source==capacity) {
+                    item->window.name=row?"live_bot_difficulty":"live_bot_count";
+                    item->onFocus=onFocus;
+                    bots_ui::ConfigureBotItem(item,row!=0);
+                } else if(source->textExp.numEntries||(source->text&&*source->text)) {
+                    item->window.name=row?"live_bot_difficulty_label":"live_bot_count_label";
+                    item->text=row?"BOT DIFFICULTY":bots_ui::CountLabel();
+                    item->textExp={};
+                    item->window.staticFlags|=0x100000;
+                } else if(source->visibleExp.numEntries) {
+                    // Retail highlight expressions compare ui_highlight to the
+                    // source row number. Own the copy and give each new row its
+                    // own index; never mutate the fastfile expression storage.
+                    auto expr=std::make_unique<Extension::Expression>();
+                    for(int e=0;e<source->visibleExp.numEntries;++e) {
+                        auto entry=*source->visibleExp.entries[e];
+                        if(entry.type==1&&entry.data.operand.dataType==VAL_INT)
+                            entry.data.operand.internals.intVal=highlight;
+                        expr->entries.push_back(entry);
+                    }
+                    for(auto& entry:expr->entries) expr->pointers.push_back(&entry);
+                    item->visibleExp={static_cast<int>(expr->pointers.size()),expr->pointers.data()};
+                    extension.expressions.push_back(std::move(expr));
+                }
+                extension.pointers.push_back(item);
+            }
         }
+    };
+    for(int n=0;n<menu->itemCount;++n) {
+        auto* original=menu->items[n];
+        auto* item=original;
+        if(original==capacity) {
+            item=copy(original,0);
+            bots_ui::ConfigureCapacityItem(item);
+        } else if(inlineBots&&original->window.rectClient.horzAlign==capacity->window.rectClient.horzAlign&&
+            original->window.rectClient.vertAlign==capacity->window.rectClient.vertAlign&&
+            original->window.rectClient.y>capacity->window.rectClient.y&&
+            original->window.rectClient.y<=400&&original->window.rectClient.x>=0&&
+            original->window.rectClient.x<capacity->window.rectClient.w) {
+            item=copy(original,48);
+        }
+        extension.pointers.push_back(item);
+        if(inlineBots&&original==capacity) appendBotRows();
     }
-    // Leave retail item geometry untouched. Add adjacent native rows in the
-    // unused right column; this also survives localized text and mod menus.
-    auto add=[&](const char* name,const char* text,const char* action,float y,bool bot) {
+    // Controller navigation retains its existing narrow right-column entry.
+    auto add=[&](const char* name,const char* text,const char* action,float y) {
         auto item=std::make_unique<itemDef_s>(); auto& i=*item;
         i.parent=menu; i.window.name=name;
         // A wide hitbox extends across the Host Game map list despite the
@@ -143,12 +212,10 @@ void Extend(menuDef_t* menu,bool controller,bool bots) {
         i.window.dynamicFlags[0]=4|0x10000; Color(i.window.foreColor,.88f,.89f,.81f);
         Color(i.window.outlineColor,0,0,0,.8f); i.type=1; i.fontEnum=4; i.textscale=.34f;
         i.textStyle=3; i.textaligny=20; i.text=text; i.action=action; i.imageTrack=3;
-        if(bot) { i.dvarTest="ui_live_botControls"; i.enableDvar="1"; i.dvarFlags=1; }
         extension.pointers.push_back(item.get()); extension.items.push_back(std::move(item));
     };
-    if(controller) add("live_controller_entry","CONTROLLER","open live_controller ;",355,false);
-    if(bots) add("live_bots_entry","BOT WARFARE","open live_bot_settings ;",385,true);
-    add("live_controller_help",footer,"",453,false);
+    if(controller) add("live_controller_entry","CONTROLLER","open live_controller ;",355);
+    add("live_controller_help",footer,"",453);
     auto& help=*extension.items.back();
     help.window.staticFlags=0x100000;
     help.window.rect=help.window.rectClient={32-menu->window.rect.x,453-menu->window.rect.y,576,25,0,0};
@@ -169,8 +236,8 @@ void Inspect(UiContext* dc) {
         }
         host |= Contains(n,"create_server")||Contains(n,"createserver")||Contains(n,"startserver");
         const auto links=controller::NativeMenuLinks(n,Contains(m->onOpen,"main_text"),options,host,pause);
-        // Every native menu receives the active-device footer. Main/options,
-        // host and pause screens additionally receive their new selectable rows.
+        // Controller entries remain on the existing navigation pages; bot
+        // settings are inline only on Host Game, alongside its match settings.
         Extend(m,links.controller,links.bots);
     }
 }
@@ -229,7 +296,7 @@ void Initialize(UiContext* dc) {
     Init(bindings,"live_controller_bindings","BUTTON MAPPING","live_back");
     for(int i=0;i<16;++i) Item(bindings,"controller_binding",bindingText[i].data(),48+(i/8)*290.f,107+(i%8)*34.f,285).textscale=.30f;
     for(auto* p:{&general,&response,&sticks,&timing,&bindings}) Append(dc,&p->menu);
-    bots_ui::Initialize(); Append(dc,bots_ui::Menu());
+    bots_ui::Initialize();
     Refresh(dc);
 }
 void Refresh(UiContext* dc) {

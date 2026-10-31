@@ -116,7 +116,9 @@ Holding ADS never acquires another target. Release/repress permits a new snap;
 losing visibility, going out of range, changing weapon, or losing eligibility
 cancels the current snap. A blocked keyboard/mouse command, menu, focus loss,
 frozen player state or disconnect cancels snap and requires ADS release before
-it can activate again. Corrections use the current processed command angles.
+it can activate again. Corrections use the current processed command angles,
+converted to world space with the player's spawn/view delta and the same
+kick/offset added during command serialization.
 Rotation is not added on a snap frame, and native melee still runs only once.
 The PC base has no auto-aim updater to reuse, so exact closed-source console
 behavior is not claimed. `aim_autoaim_enabled` reports the fixed enabled state.
@@ -184,8 +186,10 @@ reloads the main menu, and reopens settings. There were no fatal exceptions,
 missing glyph warnings, or native focus-script errors. These checks validate
 startup/reload paths, not the visual appearance of the pages.
 
-The expanded native menu build and eleven automated tests passed. Later visual
+The expanded native menu build and twelve engine test suites passed. Later visual
 checks verified the general Controller page, all 16 PlayStation mapping glyphs,
-and the new main-menu entries. The user subsequently confirmed that DualSense
+and the Controller main-menu entry. The user subsequently confirmed that DualSense
 navigation works in the new Controller menus and both Bot Warfare settings can
-be adjusted. The remaining acceptance checks are tracked in VALIDATION.md.
+be adjusted on the earlier separate page. Bot Count and Bot Difficulty now use
+inline native rows in Start New Server, immediately below Maximum Players.
+The remaining acceptance checks are tracked in VALIDATION.md.

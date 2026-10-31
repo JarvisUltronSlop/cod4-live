@@ -20,13 +20,25 @@ static void require(bool value, const std::string& message) {
     if (!value) throw std::runtime_error(message);
 }
 int wmain(int argc, wchar_t** argv) {
-    if (argc != 3) {
-        std::cerr << "install_acceptance <owned Steam CoD4 folder> <new empty destination>\n";
+    const bool updateOnly = argc == 4 && std::wstring(argv[3]) == L"--update-only";
+    if (argc != 3 && !updateOnly) {
+        std::cerr << "install_acceptance <owned Steam CoD4 folder> <new empty destination> [--update-only]\n";
         return 2;
     }
     try {
         fs::path source = fs::weakly_canonical(argv[1]), destination = fs::weakly_canonical(argv[2]);
-        require(!fs::exists(destination) || fs::is_empty(destination), "Acceptance destination must be new/empty");
+        const auto profile = destination / "players/profiles/acceptance/config_mp.cfg";
+        const auto server = destination / "main/server.cfg";
+        const std::string profileText = "// acceptance profile preservation\nseta name acceptance\n";
+        const std::string serverText = "// acceptance server configuration preservation\nset sv_hostname acceptance\n";
+        if (updateOnly) {
+            // Never run the destructive repair fixtures against an arbitrary
+            // installation. This mode only accepts a prior acceptance output.
+            require(read(profile) == profileText && read(server) == serverText,
+                "Update destination must contain the unchanged acceptance fixtures");
+        } else {
+            require(!fs::exists(destination) || fs::is_empty(destination), "Acceptance destination must be new/empty");
+        }
         const std::array sourceFiles{source / "iw3mp.exe", source / "binkw32.dll", source / "localization.txt"};
         std::array<std::string, 3> sourceHashes;
         for (size_t i = 0; i < sourceFiles.size(); ++i) {
@@ -36,13 +48,15 @@ int wmain(int argc, wchar_t** argv) {
         live::setup::Plan plan;
         std::string error;
         require(live::setup::Inspect(source, destination, plan, error), error);
-        require(!plan.repair, "Acceptance must begin with a clean installation");
+        require(plan.repair == updateOnly, "Acceptance installation mode mismatch");
         std::atomic_bool cancelled{false};
         unsigned last = 101;
         const auto progress = [&](unsigned percent, const std::string& text) {
             if (percent != last) { std::cout << percent << "% " << text << std::endl; last = percent; }
         };
         require(live::setup::Install(plan, cancelled, progress, error), error);
+        if (updateOnly)
+            require(read(profile) == profileText && read(server) == serverText, "Update changed user configuration");
         for (const auto& asset : plan.assets)
             require(fs::file_size(destination / asset.relative) == asset.bytes, "Installed asset size mismatch");
         for (auto name : {"cod4-live.exe", "cod4-live_server.exe", "steam_api.dll", "D3DX9_43.dll"}) {
@@ -62,10 +76,6 @@ int wmain(int argc, wchar_t** argv) {
             contentHashes[i] = live::setup::HashFile(contentFiles[i]);
             require(!contentHashes[i].empty(), "Controller/Bot Warfare payload missing");
         }
-        const auto profile = destination / "players/profiles/acceptance/config_mp.cfg";
-        const auto server = destination / "main/server.cfg";
-        const std::string profileText = "// acceptance profile preservation\nseta name acceptance\n";
-        const std::string serverText = "// acceptance server configuration preservation\nset sv_hostname acceptance\n";
         write(profile, profileText); write(server, serverText);
         write(destination / "cod4-live.exe", "acceptance repair fixture");
         fs::remove(destination / "D3DX9_43.dll");
@@ -80,7 +90,9 @@ int wmain(int argc, wchar_t** argv) {
         require(read(profile) == profileText && read(server) == serverText, "Repair changed user configuration");
         for (size_t i = 0; i < sourceFiles.size(); ++i)
             require(live::setup::HashFile(sourceFiles[i]) == sourceHashes[i], "Retail source changed");
-        std::cout << "PASS: real payload clean install, asset sizes, binary/content repair, profile/server preservation, retail source hashes\n";
+        std::cout << "PASS: real payload " << (updateOnly ? "update" : "clean install")
+            << (updateOnly ? "" : ", copied asset sizes")
+            << ", binary/content repair, profile/server preservation, retail source hashes\n";
         return 0;
     } catch (const std::exception& e) {
         std::cerr << "FAIL: " << e.what() << '\n';

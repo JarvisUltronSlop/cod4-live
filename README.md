@@ -27,7 +27,7 @@ assets and proprietary middleware are excluded from this repository and installe
 - Base FOV is 65. Scale ranges from 1 to 90/65 (about 1.384615). These are CoD4's
   standard 4:3-reference values; native widescreen conversion is retained.
 - Protocol 10003 requires matching cod4-live clients and servers.
-- Bot Warfare is built in. Native host menus select count and difficulty; the
+- Bot Warfare is built in. Start New Server has inline bot count and difficulty rows; the
   bot limit follows the configured player capacity minus one reserved human slot.
 
 Input reports describe what this client observes. They cannot establish physical

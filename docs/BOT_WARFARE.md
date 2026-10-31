@@ -21,10 +21,14 @@ human can occupy that slot; additional humans require a free slot. The Bot Warfa
 manager removes excess bots when the human population or selected count changes.
 
 `live_botDifficulty` selects upstream skill 0–7, default 3. Zero randomizes skill;
-1 is easiest and 7 hardest. The native host menu saves these settings before a
-match and applies live changes while hosting. Remote clients cannot change a
-server's bot settings through this menu. Server owners can set these dvars in
-their server configuration.
+1 is easiest and 7 hardest. Start New Server contains native BOTS and BOT
+DIFFICULTY value controls immediately below Maximum Players. Left/right on the
+D-pad, either stick, or keyboard adjusts a focused value; Cross/A or Enter also
+cycles forward. The gray label shows the available bot maximum. A one-player
+capacity leaves zero bot slots; increase Maximum Players before adding bots.
+There is no separate Bot Warfare settings page or main-menu entry. Remote clients
+cannot change a server's bot settings through these controls. Server owners can
+also set the dvars in their configuration or console, including while hosting.
 
 The adapter maintains `bots_manage_fill` in bots-only mode, enables removal of
 excess bots, and maps difficulty to `bots_skill`. Bot Warfare's scripted admin

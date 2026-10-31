@@ -3,6 +3,9 @@
 #ifdef COD4LIVE
 #include <live/aim_tuning.h>
 #endif
+#ifdef COD4_LIVE_CONTROLLER
+#include <live/controller_snap.h>
+#endif
 #include <qcommon/mem_track.h>
 #include <universal/com_math.h>
 #include <qcommon/cmd.h>
@@ -248,7 +251,11 @@ void AimAssist_RegisterDvars()
         minj,
         DVAR_CHEAT,
         "The horizontal aim assist slowdown ratio when aiming down the sight");
+#ifdef COD4LIVE
+    aim_autoaim_enabled = Dvar_RegisterBool("aim_autoaim_enabled", 1, DVAR_CHEAT, "Fixed controller ADS-press snap");
+#else
     aim_autoaim_enabled = Dvar_RegisterBool("aim_autoaim_enabled", 0, 0x80u, "Turn on auto aim");
+#endif
     aim_autoaim_debug = Dvar_RegisterBool("aim_autoaim_debug", 0, 0x80u, "Turn on auto aim debugging");
     mink.value.max = 100.0f;
     mink.value.min = 0.0f;
@@ -1197,13 +1204,11 @@ void __cdecl AimAssist_DrawTargets(int64_t localClientNum, const float *color)
     float yd; // [esp+8Ch] [ebp-8h]
     float y_4; // [esp+90h] [ebp-4h]
 
-    //if (!HIDWORD(localClientNum))
-    //    MyAssertHandler(".\\aim_assist\\aim_assist.cpp", 1627, 0, "%s", "ps");
-    // TODO: Check that these are equivalent
-    iassert(HIDWORD(localClientNum));
+    const auto* ps=&CG_GetLocalClientGlobals(localClientNum)->predictedPlayerState;
+    iassert(ps);
     iassert(color);
 
-    int32_t weapIndex = AimAssist_GetWeaponIndex(localClientNum, (const playerState_s *)HIDWORD(localClientNum)); // [esp+78h] [ebp-1Ch]
+    int32_t weapIndex = AimAssist_GetWeaponIndex(localClientNum,ps);
     if (weapIndex)
     {
         weapDef = BG_GetWeaponDef(weapIndex);
@@ -1213,7 +1218,12 @@ void __cdecl AimAssist_DrawTargets(int64_t localClientNum, const float *color)
         {
             if (aim_autoaim_debug->current.enabled)
             {
+#ifdef COD4_LIVE_CONTROLLER
+                const float snapRange=live::controller::SnapRange(weapDef->autoAimRange,weapDef->aimAssistRangeAds);
+                v12 = snapRange*snapRange;
+#else
                 v12 = weapDef->autoAimRange * weapDef->autoAimRange;
+#endif
                 if (v12 < (double)aaGlob->screenTargets[targetIndex].distSqr)
                     continue;
             }

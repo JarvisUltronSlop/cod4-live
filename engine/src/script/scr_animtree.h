@@ -1,6 +1,7 @@
 #pragma once
 #include <xanim/xanim.h>
 #include <bgame/bg_local.h>
+#include "scr_variable.h"
 
 #define MAX_XANIMTREE_NUM       0x80 // 128
 
@@ -23,10 +24,10 @@ struct scrAnimGlob_t // sizeof=0x20C
 {                                       // ...
     const char *start;                  // ...
     const char *pos;                    // ...
-    uint16_t using_xanim_lookup[2][MAX_XANIMTREE_NUM]; // ...
+    VariableLink using_xanim_lookup[2][MAX_XANIMTREE_NUM]; // ...
     int bAnimCheck;                     // ...
 };
-static_assert(sizeof(scrAnimGlob_t) == 0x20C);
+static_assert(sizeof(scrAnimGlob_t) == 12 + 2 * MAX_XANIMTREE_NUM * sizeof(VariableLink));
 
 void __cdecl TRACK_scr_animtree();
 void __cdecl SetAnimCheck(int bAnimCheck);

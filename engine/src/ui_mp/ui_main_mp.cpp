@@ -27,6 +27,7 @@
 #include <universal/profile.h>
 #ifdef COD4_LIVE_CONTROLLER
 #include <live/controller_menu.h>
+#include <live/bot_menu.h>
 #endif
 
 enum sscType_t : __int32
@@ -3371,6 +3372,9 @@ void __cdecl UI_RunMenuScript(int localClientNum, const char **args, const char 
             || (Bool = Dvar_GetBool("sv_punkbuster"), v56 = Dvar_GetBool("cl_punkbuster"), !Bool)
             || v56)
         {
+#ifdef COD4_LIVE_CONTROLLER
+            live::bots_ui::ApplyHostCapacity();
+#endif
             Dvar_SetBoolByName("cg_thirdPerson", 0);
             v3 = va("%i", ui_dedicated->current.integer);
             Dvar_SetFromStringByNameFromSource("dedicated", v3, DVAR_SOURCE_EXTERNAL);

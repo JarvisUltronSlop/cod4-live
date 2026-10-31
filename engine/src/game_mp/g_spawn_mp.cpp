@@ -442,14 +442,14 @@ void __cdecl Scr_FreeHudElem(game_hudelem_s *hud)
 {
     if (!hud)
         MyAssertHandler(".\\game_mp\\g_spawn_mp.cpp", 881, 0, "%s", "hud");
-    if ((uint32_t)(hud - g_hudelems) >= 0x400)
+    if ((uint32_t)(hud - g_hudelems) >= MAX_HUDELEMS_TOTAL)
         MyAssertHandler(
             ".\\game_mp\\g_spawn_mp.cpp",
             882,
             0,
             "hud - g_hudelems doesn't index MAX_HUDELEMS_TOTAL\n\t%i not in [0, %i)",
             hud - g_hudelems,
-            1024);
+            MAX_HUDELEMS_TOTAL);
     if (hud->elem.type == HE_TYPE_FREE)
         MyAssertHandler(".\\game_mp\\g_spawn_mp.cpp", 883, 0, "%s", "hud->elem.type != HE_TYPE_FREE");
     Scr_NotifyNum(hud - g_hudelems, CLASS_NUM_HUDELEM, scr_const.death, 0);
@@ -461,14 +461,14 @@ void __cdecl Scr_AddHudElem(game_hudelem_s *hud)
 {
     if (!hud)
         MyAssertHandler(".\\game_mp\\g_spawn_mp.cpp", 902, 0, "%s", "hud");
-    if ((uint32_t)(hud - g_hudelems) >= 0x400)
+    if ((uint32_t)(hud - g_hudelems) >= MAX_HUDELEMS_TOTAL)
         MyAssertHandler(
             ".\\game_mp\\g_spawn_mp.cpp",
             903,
             0,
             "hud - g_hudelems doesn't index MAX_HUDELEMS_TOTAL\n\t%i not in [0, %i)",
             hud - g_hudelems,
-            1024);
+            MAX_HUDELEMS_TOTAL);
     if (hud->elem.type == HE_TYPE_FREE)
         MyAssertHandler(".\\game_mp\\g_spawn_mp.cpp", 904, 0, "%s", "hud->elem.type != HE_TYPE_FREE");
     Scr_AddEntityNum(hud - g_hudelems, CLASS_NUM_HUDELEM);

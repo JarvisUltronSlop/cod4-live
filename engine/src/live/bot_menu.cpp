@@ -1,6 +1,7 @@
 #include "bot_menu.h"
 #include "bot_warfare.h"
 #include "controller.h"
+#include "server_capacity.h"
 #include <universal/q_shared.h>
 #include <qcommon/qcommon.h>
 #include <client_mp/client_mp.h>
@@ -19,6 +20,10 @@ itemDef_s rows[10]{};
 itemDef_s* pointers[10]{};
 char countLabels[64][4]{};
 const char* countChoices[65]{};
+char capacityLabels[64][4]{};
+const char* capacityChoices[65]{};
+const dvar_s* capacityIndex = nullptr;
+int previousCapacityIndex = -1;
 const char* difficulties[]{"Random", "Recruit", "Easy", "Regular", "Hardened", "Veteran", "Expert", "Maximum", nullptr};
 const dvar_s* countDomain = nullptr;
 const dvar_s* enabled = nullptr;
@@ -64,17 +69,13 @@ void Choice(Row index, const char* dvar, const char* domain) {
 }
 int CapacityLimit() {
     const bool hosting = com_sv_running && com_sv_running->current.enabled;
-    const auto read = [hosting](const dvar_s* capacity) {
-        if (!capacity) return 0;
-        if (capacity->type == DVAR_TYPE_INT || capacity->type == DVAR_TYPE_ENUM)
-            return hosting ? capacity->current.integer : capacity->latched.integer;
-        if (capacity->type == DVAR_TYPE_STRING) return std::atoi(capacity->current.string);
-        return 0;
-    };
-    int value = !hosting ? read(Dvar_FindVar("ui_maxclients")) : 0;
-    if (value < 1 || value > 64) value = read(Dvar_FindVar("sv_maxclients"));
-    if (value < 1) value = 32;
-    return std::clamp(value, 1, 64) - 1;
+    // The stock Host Game widget edits sv_maxclients. ui_maxclients was a
+    // separate legacy ceiling, so preferring it displayed a different capacity.
+    const auto* capacity=Dvar_FindVar("sv_maxclients");
+    if(capacity && (capacity->type==DVAR_TYPE_INT || capacity->type==DVAR_TYPE_ENUM))
+        return CapacityForMenu(hosting,capacity->current.integer,capacity->latched.integer)-1;
+    const int value=capacity&&capacity->type==DVAR_TYPE_STRING?std::atoi(capacity->current.string):1;
+    return CapacityForMenu(hosting,value,value)-1;
 }
 }
 
@@ -88,8 +89,14 @@ void Initialize() {
     for (int i = 0; i < 64; ++i) {
         std::snprintf(countLabels[i], sizeof(countLabels[i]), "%d", i);
         countChoices[i] = countLabels[i];
+        std::snprintf(capacityLabels[i], sizeof(capacityLabels[i]), "%d", i+1);
+        capacityChoices[i] = capacityLabels[i];
     }
     countChoices[64] = nullptr;
+    capacityChoices[64] = nullptr;
+    Dvar_RegisterEnum("ui_live_hostCapacityOptions",capacityChoices,0,DVAR_NOFLAG,"Host maximum player choices");
+    capacityIndex=Dvar_RegisterInt("ui_live_hostCapacityIndex",0,0,MaxClientCapacity-1,DVAR_NOFLAG,"Host maximum players selection");
+    previousCapacityIndex=-1;
     countDomain = Dvar_RegisterEnum("ui_live_botCountOptions", countChoices, 0, DVAR_NOFLAG, "Bot count menu choices");
     Dvar_RegisterEnum("ui_live_botDifficultyOptions", difficulties, 0, DVAR_NOFLAG, "Bot difficulty menu choices");
     enabled = Dvar_RegisterBool("ui_live_botControls", true, DVAR_ROM, "Local bot configuration available");
@@ -137,8 +144,32 @@ void Initialize() {
 
 menuDef_t* Menu() { return built ? &menu : nullptr; }
 
+void ConfigureCapacityItem(itemDef_s* item) {
+    // Preserve the stock label, geometry, colors and focus scripts. Replace
+    // only its numeric edit control with a 1-64 native left/right selector.
+    item->type=item->dataType=13;
+    item->dvar="ui_live_hostCapacityIndex";
+    item->typeData.enumDvarName="ui_live_hostCapacityOptions";
+    item->text=nullptr;
+    item->textExp={};
+}
+
+void ApplyHostCapacity() {
+    const auto* capacity=Dvar_FindVar("sv_maxclients");
+    if(!capacityIndex||!capacity||capacity->type!=DVAR_TYPE_INT) return;
+    const int selected=capacityIndex->current.integer;
+    if(previousCapacityIndex>=0&&selected!=previousCapacityIndex) {
+        // Honor latch semantics: never resize a running server's client array.
+        Dvar_SetIntFromSource(const_cast<dvar_s*>(capacity),CapacityFromMenuIndex(selected),DVAR_SOURCE_EXTERNAL);
+    }
+    const int pending=CapacityForMenu(false,capacity->current.integer,capacity->latched.integer);
+    previousCapacityIndex=pending-1;
+    Dvar_SetInt(capacityIndex,previousCapacityIndex);
+}
+
 void Refresh() {
     if (!built) return;
+    ApplyHostCapacity();
     if (controller::InUse())
         std::snprintf(helpText, sizeof(helpText), "%s Select    %s Back    %s %s Adjust",
             controller::KeyName(1, true), controller::KeyName(2, true),

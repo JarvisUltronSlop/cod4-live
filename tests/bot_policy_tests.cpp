@@ -5,6 +5,12 @@
 int main()
 {
     using namespace live::bots;
+    for(int capacity:{1,24,32,64}) {
+        assert(live::CapacityFromMenuIndex(capacity-1)==capacity);
+        assert(live::CapacityForMenu(false,32,capacity)==capacity);
+        assert(live::CapacityForMenu(true,capacity,32)==capacity);
+        assert(CountLimit(live::CapacityForMenu(false,32,capacity),1)==capacity-1);
+    }
     assert(CountLimit(0, 0) == 0);
     assert(CountLimit(1, 0) == 0);
     assert(CountLimit(18, 0) == 17);

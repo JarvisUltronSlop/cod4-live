@@ -1052,9 +1052,14 @@ checkTraceForBone( myEye, bone )
 		return false;
 	}
 	
+	// cod4-live: the sight predicate is read-only; reject it before allocating
+	// a detailed bullet-trace result. Visibility rules and bone order are unchanged.
+	if ( !sighttracepassed( myEye, boneLoc, false, undefined ) )
+	{
+		return false;
+	}
 	trace = bullettrace( myEye, boneLoc, false, undefined );
-	
-	return ( sighttracepassed( myEye, boneLoc, false, undefined ) && ( trace[ "fraction" ] >= 1.0 || trace[ "surfacetype" ] == "glass" ) );
+	return ( trace[ "fraction" ] >= 1.0 || trace[ "surfacetype" ] == "glass" );
 }
 
 /*
@@ -1168,15 +1173,15 @@ target_loop()
 				continue;
 			}
 			
-			canTargetPlayer = ( ( player checkTraceForBone( myEye, "j_head" ) ||
-						player checkTraceForBone( myEye, "j_ankle_le" ) ||
-						player checkTraceForBone( myEye, "j_ankle_ri" ) )
-						
+			// cod4-live: short-circuit the same pure eligibility predicates before
+			// expensive bone traces. No target selection or update timing changes.
+			canTargetPlayer = ( ( getConeDot( player.origin, self.origin, myAngles ) >= myFov ||
+						( isObjDef && obj.trace_time ) )
 					&& ( SmokeTrace( myEye, player.origin, level.smokeradius ) ||
 						daDist < level.bots_maxknifedistance * 4 )
-						
-					&& ( getConeDot( player.origin, self.origin, myAngles ) >= myFov ||
-						( isObjDef && obj.trace_time ) ) );
+					&& ( player checkTraceForBone( myEye, "j_head" ) ||
+						player checkTraceForBone( myEye, "j_ankle_le" ) ||
+						player checkTraceForBone( myEye, "j_ankle_ri" ) ) );
 						
 			if ( isdefined( self.bot.target_this_frame ) && self.bot.target_this_frame == player )
 			{

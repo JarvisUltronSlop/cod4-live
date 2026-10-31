@@ -3,6 +3,7 @@
 #endif
 
 #include <universal/q_shared.h>
+#include <live/server_capacity.h>
 #include "g_main_mp.h"
 
 #include "g_public_mp.h"
@@ -383,13 +384,14 @@ const dvar_s *G_RegisterDvars()
     Dvar_RegisterString("gamedate", __DATE__, DVAR_ROM, "The date compiled");
     Dvar_RegisterString("sv_mapname", (char *)"", DVAR_SERVERINFO | DVAR_ROM, "The current map name");
     g_gametype = Dvar_RegisterString("g_gametype", "war", DVAR_SERVERINFO | DVAR_LATCH, "The current campaign");
-    min.integer.max = Dvar_RegisterInt(
+    Dvar_RegisterInt(
         "ui_maxclients",
         32,
         (DvarLimits)0x4000000001LL,
         DVAR_ARCHIVE | DVAR_SERVERINFO | DVAR_LATCH,
-        "The maximum number of clients that can connect to a server")->current.integer;
-    min.enumeration.stringCount = 1;
+        "Legacy maximum client setting; sv_maxclients selects the actual capacity");
+    min.integer.max = live::MaxClientCapacity;
+    min.integer.min = 1;
     g_maxclients = Dvar_RegisterInt(
         "sv_maxclients",
         32,

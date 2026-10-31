@@ -1,6 +1,7 @@
 #include <live/iw4x/Aim/Assist.hpp>
 #include <live/iw4x/Mapping/StickLayout.hpp>
 #include <live/controller_policy.h>
+#include <live/controller_snap.h>
 #include <live/controller_glyph.h>
 #include <live/input_policy.h>
 #include <live/iw4x/Mapping/Binding.hpp>
@@ -120,6 +121,82 @@ int main()
         "B and Back must cancel native menus");
     Check(MenuKeyForButton(4)==K_F1 && MenuKeyForButton(3)==K_F2,
         "Y and X must retain native F1/F2 menu actions");
+    Check(SnapRange(0,1500)==1500&&SnapRange(600,1500)==600&&SnapRange(0,0)==0,
+        "PC zero autoAimRange must use only its own weapon ADS range");
+    Check(SnapVisibilityEligible(true,.2f)&&SnapVisibilityEligible(true,1),
+        "snap should accept a clear trace at the crosshair visibility threshold");
+    Check(!SnapVisibilityEligible(true,.1999f)&&!SnapVisibilityEligible(true,0)&&
+        !SnapVisibilityEligible(false,1)&&!SnapVisibilityEligible(true,std::nanf("")),
+        "snap must reject blocked geometry, near-opaque smoke and non-finite visibility");
+    SnapTarget snapTarget{7,true,true,10000,-.01f,-.02f,.01f,.02f,10,20};
+    Check(SnapEligible(snapTarget,100,.1f,.1f)&&!SnapEligible(snapTarget,99,.1f,.1f),
+        "snap range must compare world distance squared at the exact weapon boundary");
+    auto rejected=snapTarget; rejected.enemy=false;
+    Check(!SnapEligible(rejected,1000,.1f,.1f),"snap must not select a teammate");
+    rejected=snapTarget; rejected.visible=false;
+    Check(!SnapEligible(rejected,1000,.1f,.1f),"snap must not select an occluded or smoke-obscured aim point");
+    rejected=snapTarget; rejected.minX=.11f; rejected.maxX=.12f;
+    Check(!SnapEligible(rejected,1000,.1f,.1f),"snap must not select a target outside the native region");
+    AdsSnap snap;
+    auto step=[&](bool ads,std::span<const SnapTarget> targets,int weapon=1,bool allowed=true) {
+        return snap.Update(ads,weapon,allowed,targets,1000,.1f,.1f,0,0,.016f);
+    };
+    const std::array<SnapTarget,1> initial{snapTarget};
+    Check(!step(true,initial).applied,"reset must suppress an already-held ADS button");
+    step(false,initial);
+    const auto firstSnap=step(true,initial);
+    Check(firstSnap.applied&&firstSnap.entity==7&&firstSnap.pitch>0&&firstSnap.yaw>0,
+        "ADS rising edge must converge toward the visible enemy");
+    snapTarget.entity=8;
+    const std::array<SnapTarget,1> replacement{snapTarget};
+    Check(!step(true,replacement).applied&&!step(true,replacement).applied,
+        "losing the chosen target must not retarget while ADS remains held");
+    step(false,replacement);
+    Check(step(true,replacement).entity==8,"release and repress must allow a new target");
+    rejected=replacement[0]; rejected.visible=false;
+    const std::array<SnapTarget,1> hidden{rejected};
+    Check(!step(true,hidden).applied&&!snap.Active(),"occlusion during convergence must cancel immediately");
+    Check(!step(true,replacement).applied,"visibility recovery must not create another held-ADS snap");
+    step(false,replacement); step(true,replacement);
+    snap.Reset();
+    Check(!step(true,replacement).applied&&!step(true,replacement).applied,
+        "KBM block, menu, blur, frozen state or disconnect reset must require ADS release");
+    step(false,replacement); step(true,replacement);
+    Check(!step(true,replacement,2).applied&&!step(true,replacement,2).applied,
+        "weapon change while ADS is held must cancel without creating a fresh snap");
+    step(false,replacement,2);
+    Check(!step(true,replacement,2,false).applied&&!step(true,replacement,2,true).applied,
+        "becoming eligible while ADS remains held must not acquire a target");
+    step(false,replacement,2); step(true,replacement,2);
+    for(int i=0;i<20;++i) step(true,replacement,2);
+    Check(!snap.Active()&&!step(true,replacement,2).applied,"snap must end within its fixed duration");
+    snap.Reset(); step(false,{});
+    Check(!step(true,{}).applied&&!step(true,initial).applied,
+        "an ADS edge with no eligible target must be consumed");
+    for(int frames:{3,6,12,25}) {
+        AdsSnap timed; float pitch=0,yaw=0;
+        auto moving=snapTarget; moving.pitch=40; moving.yaw=-179;
+        const std::array<SnapTarget,1> target{moving};
+        timed.Update(false,1,true,target,1000,.1f,.1f,0,179,.001f);
+        yaw=179;
+        for(int i=0;i<frames;++i) {
+            const auto delta=timed.Update(true,1,true,target,1000,.1f,.1f,pitch,yaw,.1f/frames);
+            pitch+=delta.pitch; yaw+=delta.yaw;
+        }
+        Check(std::abs(pitch-40*(1-std::exp(-4.f)))<.001f,
+            "snap convergence must remain stable across frame rates");
+        Check(yaw>179&&yaw<181.01f,"snap must take the short path across the yaw wrap");
+    }
+    const auto wrapper=NativeMenuLinks("main",true,false,false,false);
+    const auto foreground=NativeMenuLinks("main_text",false,false,false,false);
+    Check(!wrapper.controller&&!wrapper.bots&&foreground.controller&&foreground.bots,
+        "CoD4 entries must belong to foreground main_text instead of its hidden wrapper");
+    for(const auto name:{"main_controls","MAIN_OPTIONS"}) {
+        const auto links=NativeMenuLinks(name,false,false,false,false);
+        Check(links.controller&&!links.bots,"stock Controls and Options must expose controller settings");
+    }
+    Check(NativeMenuLinks("main",false,false,false,false).controller,
+        "a mod menu without a main_text wrapper must retain its entry");
     using mapping::engine_key;
     for (const char* name : {"buttons_default","buttons_tactical","buttons_lefty","buttons_nomad"}) {
         mapping::binding_table normalLayout, flippedLayout;

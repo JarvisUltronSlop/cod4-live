@@ -28,6 +28,25 @@ constexpr int MenuKeyForButton(int key)
     default: return 0;
     }
 }
+struct MenuLinks { bool controller; bool bots; };
+inline MenuLinks NativeMenuLinks(std::string_view name, bool delegatesMainText,
+    bool options, bool host, bool pause)
+{
+    auto equal=[name](std::string_view other) {
+        if(name.size()!=other.size()) return false;
+        for(std::size_t i=0;i<name.size();++i) {
+            const char c=name[i]>='A'&&name[i]<='Z'?name[i]+'a'-'A':name[i];
+            if(c!=other[i]) return false;
+        }
+        return true;
+    };
+    // Stock PC CoD4 uses an empty main wrapper which opens fullscreen
+    // main_text. Buttons on that wrapper are hidden behind main_text.
+    const bool main=equal("main_text")||(equal("main")&&!delegatesMainText);
+    options|=equal("main_controls")||equal("main_options")||equal("options")||
+        equal("options_menu")||equal("options_multi")||equal("setup_menu2");
+    return {main||options||pause,main||host||pause};
+}
 // The legacy mouse poll emits an event even when the cursor did not move.
 // Routing that event into UI hover clears controller-selected item focus.
 constexpr bool PreserveMenuFocus(bool controllerInUse, bool menu, int dx, int dy)

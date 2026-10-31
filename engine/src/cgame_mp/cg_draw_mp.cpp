@@ -362,15 +362,15 @@ void __cdecl CG_ScanForCrosshairEntity(int32_t localClientNum)
         hitEntId = Trace_GetEntityHitId(&trace);
         if (hitEntId < 0x40u)
         {
+            uint32_t crosshairFlags = 0;
             bcassert(cgameGlob->nextSnap->ps.clientNum, MAX_CLIENTS);
             fadeOutTime = cg_friendlyNameFadeOut->current.integer;
             team = cgameGlob->bgs.clientinfo[cgameGlob->nextSnap->ps.clientNum].team;
             if (team != TEAM_SPECTATOR)
             {
-                bcassert(cgameGlob->crosshairClientNum, MAX_CLIENTS);
-                if (cgameGlob->bgs.clientinfo[cgameGlob->crosshairClientNum].team == team && team)
+                if (cgameGlob->bgs.clientinfo[hitEntId].team == team && team)
                 {
-                    cgameGlob->predictedPlayerState.weapFlags |= 8u;
+                    crosshairFlags = 8u;
                 }
                 else
                 {
@@ -380,7 +380,7 @@ void __cdecl CG_ScanForCrosshairEntity(int32_t localClientNum)
                     v2 = weapDef->enemyCrosshairRange * weapDef->enemyCrosshairRange;
                     if (v2 < Vec3LengthSq(diff))
                         return;
-                    cgameGlob->predictedPlayerState.weapFlags |= 0x10u;
+                    crosshairFlags = 0x10u;
                     fadeOutTime = cg_enemyNameFadeOut->current.integer;
                 }
             }
@@ -388,6 +388,7 @@ void __cdecl CG_ScanForCrosshairEntity(int32_t localClientNum)
             vis = FX_GetClientVisibility(localClientNum, start, contactEnd);
             if (vis >= 0.2000000029802322)
             {
+                cgameGlob->predictedPlayerState.weapFlags |= crosshairFlags;
                 if (cgameGlob->crosshairClientNum != hitEntId
                     || cgameGlob->time - cgameGlob->crosshairClientLastTime > fadeOutTime)
                 {

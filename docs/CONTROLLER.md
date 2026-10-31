@@ -98,8 +98,30 @@ repository does not publish a separate replacement graph. Exact equality with
 MW2's retail graph knots is not claimed. CoD4 supplies its existing
 weapon ranges, ADS and FOV scaling, target bounds, enemy/team checks, visibility
 traces, and melee behavior. Slowdown defaults are 0.4 at hip and 0.5 at ADS;
-rotational strength is 0.6 and requires look/strafe deflection. It does not snap to
-targets when ADS starts. Gameplay aim tuning, target radius, and melee defaults are
+rotational strength is 0.6 and requires look/strafe deflection.
+
+ADS snap is a fixed cod4-live addition, enabled for every controller player at the
+user's request. Pressing the mapped ADS control (normally LT/L2) chooses the
+nearest-crosshair eligible enemy in CoD4's native auto-aim region, then converges
+for at most 200 ms with gain 40. Convergence is stable across frame rates. The
+chosen aim bone is freshly checked against solid geometry and effect visibility
+each frame. Snap requires visibility of at least 0.2, matching the crosshair
+feedback threshold rather than the weaker native target-acquisition threshold.
+Teammates, dead players, hidden targets, offhands, non-ADS weapons,
+and lock-on-only weapons are excluded. Positive weapon `autoAimRange` is used
+when present. Retail PC infantry weapons set it to zero, so those use their own
+`aimAssistRangeAds` instead; no global range increase is applied.
+
+Holding ADS never acquires another target. Release/repress permits a new snap;
+losing visibility, going out of range, changing weapon, or losing eligibility
+cancels the current snap. A blocked keyboard/mouse command, menu, focus loss,
+frozen player state or disconnect cancels snap and requires ADS release before
+it can activate again. Corrections use the current processed command angles.
+Rotation is not added on a snap frame, and native melee still runs only once.
+The PC base has no auto-aim updater to reuse, so exact closed-source console
+behavior is not claimed. `aim_autoaim_enabled` reports the fixed enabled state.
+
+Gameplay aim tuning, target radius, and melee defaults are
 read-only and reject non-default values even through DevGUI; the response-curve
 editor is not registered. Debug display options remain separate. Lock-on-only
 weapons are excluded; free-fire weapons use their own range and ammunition rules.
@@ -134,8 +156,13 @@ disabled) at 30/60/144/250/1000 Hz,
 slowdown interpolation, relative-motion rotation, inversion, stick mapping,
 gameplay command classification, short-tap retention, native menu button parity,
 all eight button profiles, parsing/length validation for all 32 inline glyphs,
-and presence-versus-focus behavior through the server's disconnect grace. The integration and
-native drivers compile into the Windows client.
+and presence-versus-focus behavior through the server's disconnect grace. The
+production ADS-snap state machine is also tested for press/release, held-input
+suppression after resets, weapon changes, target loss, visibility/team/range
+rejection, short-angle wrapping, the time bound and convergence across frame
+rates. Those deterministic visibility inputs do not substitute for in-game
+geometry/smoke testing. The integration and native drivers compile into the
+Windows client.
 
 On 2026-10-31 a physical DualSense over USB was tested with the production driver
 stack for 30 seconds: 2,523 sampled states decoded, both sticks and both triggers
@@ -157,9 +184,8 @@ reloads the main menu, and reopens settings. There were no fatal exceptions,
 missing glyph warnings, or native focus-script errors. These checks validate
 startup/reload paths, not the visual appearance of the pages.
 
-The earlier native client/server build and five automated tests passed after the
-focus and fixed-tuning changes. The expanded native menu build and all seven
-current automated tests subsequently passed. The earlier physical menu-to-match
-confirmation predates the new native settings pages and image glyphs; those still
-need visual/controller acceptance. Computer-use inspection is currently disabled
-following the user's Escape, so no visual verification is claimed for the new UI.
+The expanded native menu build and eleven automated tests passed. Later visual
+checks verified the general Controller page, all 16 PlayStation mapping glyphs,
+and the new main-menu entries. The user subsequently confirmed that DualSense
+navigation works in the new Controller menus and both Bot Warfare settings can
+be adjusted. The remaining acceptance checks are tracked in VALIDATION.md.

@@ -18,6 +18,8 @@ assets and proprietary middleware are excluded from this repository and installe
 - Native Xbox/XInput and PlayStation input, with a Steam Input compatibility mode.
 - Native Controller menu pages, IW4x button artwork, eight button layouts, four
   stick layouts, ten sensitivity presets and custom sensitivity settings.
+- Fixed controller slowdown, rotational assistance and weapon-ranged aim snap
+  when ADS is pressed. Snap requires a visible enemy and a new ADS press.
 - Keyboard/mouse remains available for chat and menus. Gameplay attempts are blocked
   immediately, warned, and disconnected after five seconds of continuing attempts.
   A clean 500 ms interval resets the warning window.

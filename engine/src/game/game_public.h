@@ -315,7 +315,10 @@ void __cdecl HudElem_UpdateClient(gclient_s *client);
 #endif
 
 #ifdef KISAK_MP
-#define MAX_HUDELEMS_TOTAL 0x400
+// Server script HUD objects, not the per-client/network HUD arrays. Mine
+// headicons are allocated per viewer; 64-player bot matches exceed the old 1K pool.
+#define MAX_HUDELEMS_TOTAL 0x2000
+static_assert(MAX_HUDELEMS_TOTAL <= UINT16_MAX, "Script HUD entity IDs stay 16-bit");
 extern game_hudelem_s g_hudelems[MAX_HUDELEMS_TOTAL];
 #elif KISAK_SP
 #define MAX_HUDELEMS_TOTAL 0x100

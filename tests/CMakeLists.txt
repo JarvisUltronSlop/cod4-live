@@ -29,18 +29,57 @@ target_include_directories(bot_policy_tests PRIVATE ${CMAKE_CURRENT_LIST_DIR}/..
 target_compile_options(bot_policy_tests PRIVATE $<$<CXX_COMPILER_ID:MSVC>:/UNDEBUG>)
 add_test(NAME bot_policy COMMAND bot_policy_tests)
 find_package(Python3 COMPONENTS Interpreter REQUIRED)
+set(damage_callback_source "${CMAKE_CURRENT_BINARY_DIR}/generated_damage_callback.inc")
+add_custom_command(OUTPUT "${damage_callback_source}"
+    COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_LIST_DIR}/extract_damage_callback.py"
+        "${CMAKE_CURRENT_LIST_DIR}/../engine/src/game_mp/g_combat_mp.cpp" "${damage_callback_source}"
+    DEPENDS "${CMAKE_CURRENT_LIST_DIR}/extract_damage_callback.py"
+        "${CMAKE_CURRENT_LIST_DIR}/../engine/src/game_mp/g_combat_mp.cpp"
+    VERBATIM)
+add_executable(damage_callback_tests "${CMAKE_CURRENT_LIST_DIR}/damage_callback_tests.cpp" "${damage_callback_source}")
+target_compile_features(damage_callback_tests PRIVATE cxx_std_20)
+target_compile_definitions(damage_callback_tests PRIVATE KISAK_MP=1 WIN32 RELEASE_ASSERTS)
+target_include_directories(damage_callback_tests PRIVATE "${CMAKE_CURRENT_LIST_DIR}/../engine/src"
+    "${CMAKE_CURRENT_LIST_DIR}/../engine/deps" "${CMAKE_CURRENT_BINARY_DIR}")
+add_test(NAME damage_callback COMMAND damage_callback_tests)
 set(script_variable_source "${CMAKE_CURRENT_BINARY_DIR}/generated_script_variables.inc")
 add_custom_command(OUTPUT "${script_variable_source}"
     COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_LIST_DIR}/extract_script_variables.py"
         "${CMAKE_CURRENT_LIST_DIR}/../engine/src/script/scr_variable.cpp" "${script_variable_source}"
     DEPENDS "${CMAKE_CURRENT_LIST_DIR}/extract_script_variables.py"
         "${CMAKE_CURRENT_LIST_DIR}/../engine/src/script/scr_variable.cpp"
+        "${CMAKE_CURRENT_LIST_DIR}/../engine/src/script/scr_animtree.cpp"
+        "${CMAKE_CURRENT_LIST_DIR}/../engine/src/game/g_hudelem.cpp"
     VERBATIM)
 add_executable(script_variable_tests "${CMAKE_CURRENT_LIST_DIR}/script_variable_tests.cpp" "${script_variable_source}")
 target_compile_features(script_variable_tests PRIVATE cxx_std_20)
 target_compile_definitions(script_variable_tests PRIVATE KISAK_MP=1 WIN32 RELEASE_ASSERTS)
-target_include_directories(script_variable_tests PRIVATE "${CMAKE_CURRENT_LIST_DIR}/../engine/src" "${CMAKE_CURRENT_BINARY_DIR}")
+target_include_directories(script_variable_tests PRIVATE "${CMAKE_CURRENT_LIST_DIR}/../engine/src" "${CMAKE_CURRENT_LIST_DIR}/../engine/deps" "${CMAKE_CURRENT_BINARY_DIR}")
 add_test(NAME script_variables COMMAND script_variable_tests)
+set(script_reference_source "${CMAKE_CURRENT_BINARY_DIR}/generated_script_references.inc")
+add_custom_command(OUTPUT "${script_reference_source}"
+    COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_LIST_DIR}/extract_script_references.py"
+        "${CMAKE_CURRENT_LIST_DIR}/../engine/src/script" "${script_reference_source}"
+    DEPENDS "${CMAKE_CURRENT_LIST_DIR}/extract_script_references.py"
+        "${CMAKE_CURRENT_LIST_DIR}/../engine/src/script/scr_stringlist.cpp"
+        "${CMAKE_CURRENT_LIST_DIR}/../engine/src/script/scr_variable.cpp"
+    VERBATIM)
+add_executable(script_reference_tests "${CMAKE_CURRENT_LIST_DIR}/script_reference_tests.cpp" "${script_reference_source}")
+target_compile_features(script_reference_tests PRIVATE cxx_std_20)
+target_compile_definitions(script_reference_tests PRIVATE KISAK_MP=1 WIN32 RELEASE_ASSERTS)
+target_include_directories(script_reference_tests PRIVATE "${CMAKE_CURRENT_LIST_DIR}/../engine/src" "${CMAKE_CURRENT_LIST_DIR}/../engine/deps" "${CMAKE_CURRENT_BINARY_DIR}")
+add_test(NAME script_references COMMAND script_reference_tests)
+set(crosshair_scan_source "${CMAKE_CURRENT_BINARY_DIR}/generated_crosshair_scan.inc")
+add_custom_command(OUTPUT "${crosshair_scan_source}"
+    COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_LIST_DIR}/extract_crosshair_scan.py"
+        "${CMAKE_CURRENT_LIST_DIR}/../engine/src/cgame_mp/cg_draw_mp.cpp" "${crosshair_scan_source}"
+    DEPENDS "${CMAKE_CURRENT_LIST_DIR}/extract_crosshair_scan.py"
+        "${CMAKE_CURRENT_LIST_DIR}/../engine/src/cgame_mp/cg_draw_mp.cpp"
+    VERBATIM)
+add_executable(crosshair_scan_tests "${CMAKE_CURRENT_LIST_DIR}/crosshair_scan_tests.cpp" "${crosshair_scan_source}")
+target_compile_features(crosshair_scan_tests PRIVATE cxx_std_20)
+target_include_directories(crosshair_scan_tests PRIVATE "${CMAKE_CURRENT_BINARY_DIR}")
+add_test(NAME crosshair_scan COMMAND crosshair_scan_tests)
 add_test(NAME controller_assets COMMAND "${Python3_EXECUTABLE}"
     "${CMAKE_CURRENT_LIST_DIR}/../scripts/convert-controller-images.py" --check)
 set(codec_source "${CMAKE_CURRENT_BINARY_DIR}/generated_usercmd_codec.cpp")

@@ -481,6 +481,8 @@ void  AddRefToVector(float const* vectorValue)
 {
 	if (!*((_BYTE*)vectorValue - 1))
 	{
+		if (((const unsigned short*)vectorValue)[-2] == UINT16_MAX)
+			Scr_TerminalError("exceeded maximum number of references to script vector");
 		InterlockedIncrement(&scrVarPub.totalVectorRefCount);
 		if (scrStringDebugGlob)
 		{

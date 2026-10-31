@@ -64,7 +64,7 @@ unsigned rumbleEnd{};
 const dvar_t *backend{}, *present{}, *inputUsed{}, *style{}, *sensitivity{}, *adsSensitivity{}, *invert{},
     *inner{}, *outer{}, *triggerDeadzone{}, *buttonConfig{}, *stickConfig{}, *rumble{},
     *antiDeadzone{}, *triggerHysteresis{}, *stickPressed{}, *stickHysteresis{}, *scrollFirst{}, *scrollRest{}, *scrollMin{}, *scrollAcceleration{};
-cmd_function_s settingsCommand{};
+cmd_function_s settingsCommand{}, menuDumpCommand{};
 constexpr std::array<engine_key, 16> buttonKeys{
     engine_key::button_a, engine_key::button_b, engine_key::button_x, engine_key::button_y,
     engine_key::dpad_up, engine_key::dpad_down, engine_key::dpad_left, engine_key::dpad_right,
@@ -263,6 +263,7 @@ void Initialize()
     scrollMin = Dvar_RegisterInt("gpad_menu_scroll_delay_min", 50, 0, 1000, DVAR_ARCHIVE, "Fastest menu repeat delay");
     scrollAcceleration = Dvar_RegisterInt("gpad_menu_scroll_accel_time", 1500, 0, 5000, DVAR_ARCHIVE, "Menu scroll acceleration time");
     Cmd_AddCommandInternal("controller_settings", OpenSettings, &settingsCommand);
+    Cmd_AddCommandInternal("controller_menu_dump", controller_ui::Dump, &menuDumpCommand);
     ready = true;
 }
 
@@ -279,6 +280,7 @@ void Shutdown()
     mode = -1;
     ready = false;
     Cmd_RemoveCommand("controller_settings");
+    Cmd_RemoveCommand("controller_menu_dump");
 }
 
 bool GameplayContext()
@@ -533,7 +535,7 @@ std::uint8_t BeginCommand()
     if (attempt) { flags |= KeyboardMouseAttempt; lastWarning = Sys_Milliseconds(); }
     pendingMouse = pendingKeyboard = false;
     usedController = false;
-    if (InputPolicy::BlockGameplay(flags) || MenuContext()) ResetAim();
+    if (InputPolicy::BlockGameplay(flags) || MenuContext() || !focused) ResetAim();
     return flags;
 }
 
@@ -546,7 +548,7 @@ void Move(int localClient, usercmd_s& command)
 {
     if (!connected || !GameplayContext() || InputPolicy::BlockGameplay(command.inputFlags)) return;
     auto* client = CL_GetLocalClientGlobals(localClient);
-    if (client->snap.ps.pm_flags & PMF_FROZEN) return;
+    if (client->snap.ps.pm_flags & PMF_FROZEN) { ResetAim(); return; }
     const float largest = std::max(std::abs(axes.forward), std::abs(axes.side));
     const float magnitude = std::sqrt(axes.forward * axes.forward + axes.side * axes.side);
     const float scale = largest > 0 ? 127.0f * magnitude / largest : 127.0f;

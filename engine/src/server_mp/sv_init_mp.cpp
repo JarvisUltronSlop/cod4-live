@@ -20,6 +20,7 @@
 #include <stringed/stringed_hooks.h>
 #include <client/client.h>
 #include <universal/profile.h>
+#include <live/server_capacity.h>
 
 
 //Line 53332:  0006 : 00cf4d5c       int sv_serverId_value    834a4d5c     sv_init_mp.obj
@@ -245,13 +246,14 @@ void __cdecl SV_BoundMaxClients(int minimum)
 {
     DvarLimits v1; // [esp-10h] [ebp-14h]
 
-    v1.integer.max = Dvar_RegisterInt(
+    Dvar_RegisterInt(
         "ui_maxclients",
         32,
         (DvarLimits)0x4000000001LL,
         DVAR_ARCHIVE | DVAR_SERVERINFO | DVAR_LATCH,
-        "The maximum number of clients that can connect to a server")->current.integer;
-    v1.enumeration.stringCount = 1;
+        "Legacy maximum client setting; sv_maxclients selects the actual capacity");
+    v1.integer.max = live::MaxClientCapacity;
+    v1.integer.min = 1;
     sv_maxclients = Dvar_RegisterInt(
         "sv_maxclients",
         32,
@@ -261,6 +263,9 @@ void __cdecl SV_BoundMaxClients(int minimum)
     Dvar_ClearModified((dvar_s*)sv_maxclients);
     if (sv_maxclients->current.integer < minimum)
         Dvar_SetInt((dvar_s *)sv_maxclients, minimum);
+    // Keep old configs/scripts which inspect the legacy value consistent with
+    // the allocated server. It no longer silently limits a native 64-slot choice.
+    Dvar_SetIntByName("ui_maxclients",sv_maxclients->current.integer);
 }
 
 void __cdecl SV_Startup()
@@ -681,13 +686,14 @@ void __cdecl SV_Init()
         (DvarLimits)0x4000000000LL,
         DVAR_SERVERINFO,
         "Maximum number of private clients allowed on the server");
-    min.integer.max = Dvar_RegisterInt(
+    Dvar_RegisterInt(
         "ui_maxclients",
         32,
         (DvarLimits)0x4000000001LL,
         DVAR_ARCHIVE | DVAR_SERVERINFO | DVAR_LATCH,
-        "The maximum number of clients that can connect to a server")->current.integer;
-    min.enumeration.stringCount = 1;
+        "Legacy maximum client setting; sv_maxclients selects the actual capacity");
+    min.integer.max = live::MaxClientCapacity;
+    min.integer.min = 1;
     sv_maxclients = Dvar_RegisterInt(
         "sv_maxclients",
         32,

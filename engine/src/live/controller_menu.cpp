@@ -1,5 +1,6 @@
 #include "controller_menu.h"
 #include "controller.h"
+#include "controller_policy.h"
 #include "controller_glyph.h"
 #include "bot_menu.h"
 #include "input_policy.h"
@@ -7,6 +8,7 @@
 #include <client_mp/client_mp.h>
 #include <client/client.h>
 #include <ui/ui_shared.h>
+#include <qcommon/cmd.h>
 #include <algorithm>
 #include <array>
 #include <cstdio>
@@ -123,12 +125,21 @@ bool Contains(const char* text,const char* fragment) {
 void Extend(menuDef_t* menu,bool controller,bool bots) {
     Extension extension; extension.menu=menu; extension.original=menu->items; extension.originalCount=menu->itemCount;
     extension.pointers.assign(menu->items,menu->items+menu->itemCount);
+    for(auto*& original:extension.pointers) {
+        if(original->dvar&&!I_stricmp(original->dvar,"sv_maxclients")) {
+            auto item=std::make_unique<itemDef_s>(*original);
+            bots_ui::ConfigureCapacityItem(item.get());
+            original=item.get(); extension.items.push_back(std::move(item));
+        }
+    }
     // Leave retail item geometry untouched. Add adjacent native rows in the
     // unused right column; this also survives localized text and mod menus.
     auto add=[&](const char* name,const char* text,const char* action,float y,bool bot) {
         auto item=std::make_unique<itemDef_s>(); auto& i=*item;
         i.parent=menu; i.window.name=name;
-        i.window.rect=i.window.rectClient={380-menu->window.rect.x,y-menu->window.rect.y,220,26,0,0};
+        // A wide hitbox extends across the Host Game map list despite the
+        // short visible label. Keep the click target within its own column.
+        i.window.rect=i.window.rectClient={380-menu->window.rect.x,y-menu->window.rect.y,96,26,0,0};
         i.window.dynamicFlags[0]=4|0x10000; Color(i.window.foreColor,.88f,.89f,.81f);
         Color(i.window.outlineColor,0,0,0,.8f); i.type=1; i.fontEnum=4; i.textscale=.34f;
         i.textStyle=3; i.textaligny=20; i.text=text; i.action=action; i.imageTrack=3;
@@ -156,12 +167,11 @@ void Inspect(UiContext* dc) {
             host |= Contains(item->text,"start_new_server")||Contains(item->text,"startserver")||Contains(item->action,"startserver");
             pause |= Contains(item->text,"resume_game")||Contains(item->text,"endgame")||Contains(item->action,"closeingame");
         }
-        const bool main=!I_stricmp(n,"main");
-        options |= !I_stricmp(n,"options")||!I_stricmp(n,"options_menu")||!I_stricmp(n,"options_multi")||!I_stricmp(n,"setup_menu2");
         host |= Contains(n,"create_server")||Contains(n,"createserver")||Contains(n,"startserver");
+        const auto links=controller::NativeMenuLinks(n,Contains(m->onOpen,"main_text"),options,host,pause);
         // Every native menu receives the active-device footer. Main/options,
         // host and pause screens additionally receive their new selectable rows.
-        Extend(m,main||options||pause,main||pause||host);
+        Extend(m,links.controller,links.bots);
     }
 }
 const char* ActionName(const char* command) {
@@ -257,6 +267,25 @@ void Open() {
 bool IsOpen() {
     const char* menu=UI_GetTopActiveMenuName(0);
     return context&&menu&&!std::strncmp(menu,"live_controller",15);
+}
+void Dump() {
+    if(!context) { Com_Printf(CON_CHANNEL_UI,"Controller UI is not initialized.\n"); return; }
+    const char* filter=Cmd_Argc()>1?Cmd_Argv(1):nullptr;
+    int menus=0,items=0;
+    Com_Printf(CON_CHANNEL_UI,"Controller menu dump: %d loaded, %d open; filter=%s\n",context->menuCount,context->openMenuCount,filter?filter:"open menus");
+    for(int n=0;n<context->menuCount && menus<32 && items<256;++n) {
+        const auto* menu=context->Menus[n];
+        bool open=false;
+        for(int i=0;i<context->openMenuCount;++i) open|=context->menuStack[i]==menu;
+        if(filter ? !Contains(menu->window.name,filter) : !open) continue;
+        ++menus;
+        Com_Printf(CON_CHANNEL_UI,"menu[%d] %s open=%d flags=%x fullscreen=%d rect=%.0f %.0f %.0f %.0f items=%d\n",n,menu->window.name?menu->window.name:"",open,menu->window.dynamicFlags[0],menu->fullScreen,menu->window.rect.x,menu->window.rect.y,menu->window.rect.w,menu->window.rect.h,menu->itemCount);
+        for(int i=0;i<menu->itemCount && items<256;++i,++items) {
+            const auto* item=menu->items[i];
+            Com_Printf(CON_CHANNEL_UI,"  [%d] %.64s type=%d flags=%x rect=%.0f %.0f %.0f %.0f text=%.120s action=%.240s\n",i,item->window.name?item->window.name:"",item->type,item->window.dynamicFlags[0],item->window.rect.x,item->window.rect.y,item->window.rect.w,item->window.rect.h,item->text?item->text:"",item->action?item->action:"");
+        }
+    }
+    Com_Printf(CON_CHANNEL_UI,"Controller menu dump end: %d menus, %d items (limit 32/256).\n",menus,items);
 }
 bool HandlesKey(int key) {
     if(!context) return false;

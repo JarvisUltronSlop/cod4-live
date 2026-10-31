@@ -325,6 +325,11 @@ void __cdecl G_DamageClient(
             damage = (int)(G_GetWeaponHitLocationMultiplier(hitLoc, weapon) * (double)damage);
         if (damage <= 0)
             damage = 1;
+        // A projectile can outlive a disconnected owner. Match G_Damage's
+        // world attribution for non-player targets before invoking stock GSC,
+        // whose explosive-damage callback expects an attacker entity.
+        if (!attacker)
+            attacker = &g_entities[ENTITYNUM_WORLD];
         Scr_PlayerDamage(targ, inflictor, attacker, damage, dflags, mod, weapon, point, dir, hitLoc, timeOffset);
     }
 }

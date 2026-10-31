@@ -87,9 +87,27 @@ static uint32_t SL_ConvertFromRefString(RefString *refString)
 	return ((char *)refString - scrMemTreePub.mt_buffer) / MT_NODE_SIZE;
 }
 
+static bool SL_AddPackedStringReference(RefString* refStr, uint32_t user, bool addUser)
+{
+	// The low 16 bits are the count; carrying out of them corrupts ownership
+	// flags. Check and increment in one CAS even when several threads share it.
+	for (;;)
+	{
+		const uint32_t previous = refStr->data;
+		const uint32_t userBits = (user & 0xFFu) << 16;
+		if (addUser && (previous & userBits))
+			return false;
+		if ((previous & 0xFFFFu) == 0xFFFFu)
+			Sys_Error("exceeded maximum number of references to script string");
+		const uint32_t next = (previous | (addUser ? userBits : 0u)) + 1u;
+		if (InterlockedCompareExchange(&refStr->data, next, previous) == previous)
+			return true;
+	}
+}
+
 void SL_AddUserInternal(RefString* refStr, uint32_t user)
 {
-	if (((uint8_t)user & refStr->user) == 0)
+	if (SL_AddPackedStringReference(refStr, user, true))
 	{
 		if (scrStringDebugGlob)
 		{
@@ -100,18 +118,14 @@ void SL_AddUserInternal(RefString* refStr, uint32_t user)
 			InterlockedIncrement(&scrStringDebugGlob->totalRefCount);
 			InterlockedIncrement(&scrStringDebugGlob->refCount[str]);
 		}
-
-		volatile int Comperand;
-		do
-			Comperand = refStr->data;
-		while (InterlockedCompareExchange(&refStr->data, Comperand | (user << 16), Comperand) != Comperand);
-		InterlockedIncrement(&refStr->data);
 	}
 }
 
 void SL_AddRefToString(uint32_t stringValue)
 {
 	PROF_SCOPED("SL_AddRefToString");
+	RefString* refStr = GetRefString(stringValue);
+	SL_AddPackedStringReference(refStr, 0, false);
 
 	if (scrStringDebugGlob)
 	{
@@ -121,9 +135,6 @@ void SL_AddRefToString(uint32_t stringValue)
 		InterlockedIncrement(&scrStringDebugGlob->totalRefCount);
 		InterlockedIncrement(&scrStringDebugGlob->refCount[stringValue]);
 	}
-
-	RefString* refStr = GetRefString(stringValue);
-	InterlockedIncrement(&refStr->data);
 
 	iassert(refStr->refCount);
 }

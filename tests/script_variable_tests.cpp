@@ -1,6 +1,8 @@
 #include <universal/q_shared.h>
 #include <script/scr_main.h>
-#include <script/scr_vm.h>
+#include <script/scr_animtree.h>
+#include <game/game_public.h>
+void Scr_TerminalError(const char* message);
 #include <algorithm>
 #include <cstdio>
 #include <cstdlib>
@@ -11,6 +13,15 @@ scrVarPub_t scrVarPub;
 scrVarDebugPub_t* scrVarDebugPub;
 scrVarDebugPub_t scrVarDebugPubBuf;
 scrVarGlob_t scrVarGlob;
+scrAnimPub_t scrAnimPub;
+scrAnimGlob_t scrAnimGlob;
+game_hudelem_s g_hudelems[MAX_HUDELEMS_TOTAL];
+unsigned hudReleases = 0;
+void Scr_FreeHudElem(game_hudelem_s*) { ++hudReleases; }
+enum { ANIMTREE_NAMES, ANIMTREE_XANIM };
+bool Scr_IsIdentifier(const char*) { return true; }
+uint32_t Scr_CreateCanonicalFilename(const char*) { return 1000; }
+void SL_RemoveRefToString(uint32_t) {}
 
 void MyAssertHandler(const char* file, int line, int, const char* format, ...)
 {
@@ -119,5 +130,27 @@ int main()
         "reference overflow rejected before mutation");
     entry.u.o.refCount = 0;
     RemoveRefToEmptyObject(bounded);
-    std::puts("Script variable production allocation/hash boundaries passed");
+    // An animation-tree lookup caches CHILD IDs, even though animation IDs
+    // themselves stay 16-bit. Reusing a tree must retain a child hash ID >65535.
+    scrAnimPub.animtrees = AllocObject();
+    scrAnimPub.animtree_loading = true;
+    uint32_t firstIndex = 0, secondIndex = 0;
+    const auto firstNames = Scr_UsingTreeInternal("fixture", &firstIndex, 1);
+    Require(scrAnimGlob.using_xanim_lookup[1][firstIndex] > 65535, "high animation child ID fixture");
+    const auto secondNames = Scr_UsingTreeInternal("fixture", &secondIndex, 1);
+    Require(firstNames == secondNames && firstIndex == secondIndex && firstIndex == 1,
+        "reused animation tree preserves full child ID");
+    static_assert(sizeof(((playerState_s*)nullptr)->hud.current) / sizeof(hudelem_s) == 31);
+    static_assert(sizeof(((playerState_s*)nullptr)->hud.archival) / sizeof(hudelem_s) == 31);
+    for (unsigned i = 0; i < MAX_HUDELEMS_TOTAL; ++i)
+    {
+        auto hud = HudElem_Alloc(i % 64, 0);
+        Require(hud == &g_hudelems[i] && hud->clientNum == i % 64, "full HUD pool allocation");
+    }
+    Require(HudElem_Alloc(0, 0) == nullptr, "HUD pool exhaustion bounded");
+    for (unsigned i = 0; i < MAX_HUDELEMS_TOTAL; i += 2) HudElem_Free(&g_hudelems[i]);
+    for (unsigned i = 0; i < MAX_HUDELEMS_TOTAL; i += 2)
+        Require(HudElem_Alloc(1, 0) == &g_hudelems[i], "HUD slot reuse across old 1024 bound");
+    Require(hudReleases == MAX_HUDELEMS_TOTAL / 2, "HUD release callbacks preserved");
+    std::puts("Script variable/HUD production allocation/hash boundaries passed");
 }

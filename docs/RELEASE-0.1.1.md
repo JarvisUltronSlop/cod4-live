@@ -23,6 +23,8 @@ Controller navigation and server-disconnect improvements for the Windows client.
   Single-choice settings retain focus, and disabled controls reject adjustments.
 - Shared menu assets are extended once and restored before shutdown, fixing a
   crash during the return from a match to the frontend.
+- Client, dedicated server and setup use the classic CoD4 numeral icon with
+  orange accents, with Windows icon sizes from 16 to 256 pixels.
 
 Download **cod4-live-0.1.1-windows-setup.exe**. Keep Steam CoD4 (2007, app 7940)
 installed, confirm the detected source folder, and choose a separate output

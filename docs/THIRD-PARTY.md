@@ -33,8 +33,13 @@ cod4-live is distributed under GNU GPL version 3; see the root LICENSE.
   build scripts allow rebuilding and relinking against a modified audio library.
 - Tracy v0.12.2 retains its upstream license and is fetched for build headers;
   instrumentation is disabled in the default build.
+- The executable branding is an orange adaptation of the classic Call of Duty 4
+  numeral mark, requested for this project. Call of Duty branding remains
+  Activision's property; it is not relicensed by the code's GPL notice. The
+  reviewed icon source and generation notes are in `native/branding/`.
 
 Call of Duty retail data and Bink remain their owners' property. Runtime
 files are copied from the user's installed game, are not committed, and are not
 embedded in the setup payload. Controller prompts use the narrowly imported IW4x
-artwork described above; a Modern Warfare 2 installation is not required.
+artwork described above; a Modern Warfare 2 installation is not required. The
+explicit branding adaptation above is the only retail-mark-based executable art.

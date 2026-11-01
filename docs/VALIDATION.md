@@ -86,12 +86,15 @@ remaining acceptance cases below are not claimed as passed.
   external changes, repeated confirmation and clock wrap.
 - Production Controller Back handling is tested across all five category pages:
   settings return focus to their sidebar category, then a second Back exits.
+  The user confirmed the corrected category navigation works on the DualSense.
 - A real v0.1 installation was upgraded with the 0.1.1 payload and repaired.
   Client/runtime/content hashes matched, profile and server fixtures survived,
   and all 343 Steam source paths, sizes and modification times were unchanged.
   The upgraded dedicated executable launched from outside its installation,
   served Shipment with protocol 10003, connected to Steam app 7940 and shut down
   through RCON without script errors.
+- Both client and server executable icon resources were extracted after the
+  final build. Their nine 16-to-256-pixel images match the reviewed orange icon.
 
 ### Earlier development checks
 

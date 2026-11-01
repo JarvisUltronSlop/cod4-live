@@ -94,7 +94,11 @@ remaining acceptance cases below are not claimed as passed.
   served Shipment with protocol 10003, connected to Steam app 7940 and shut down
   through RCON without script errors.
 - Both client and server executable icon resources were extracted after the
-  final build. Their nine 16-to-256-pixel images match the reviewed orange icon.
+  final build. Their nine 16-to-256-pixel images match the orange icon. A byte
+  comparison of the original 32px icon and its recolored version verified that
+  only 880 green pixels changed; each retains its minimum/maximum channels.
+  Neutral pixels, geometry, mask and metadata are unchanged. The packaged 32px
+  frame matches the palette-only source exactly.
 
 ### Earlier development checks
 

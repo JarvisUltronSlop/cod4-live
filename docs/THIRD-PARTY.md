@@ -36,7 +36,7 @@ cod4-live is distributed under GNU GPL version 3; see the root LICENSE.
 - The executable branding is an orange adaptation of the classic Call of Duty 4
   numeral mark, requested for this project. Call of Duty branding remains
   Activision's property; it is not relicensed by the code's GPL notice. The
-  reviewed icon source and generation notes are in `native/branding/`.
+  recolored icon source and palette-conversion notes are in `native/branding/`.
 
 Call of Duty retail data and Bink remain their owners' property. Runtime
 files are copied from the user's installed game, are not committed, and are not

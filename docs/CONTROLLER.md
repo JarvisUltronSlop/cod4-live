@@ -7,6 +7,8 @@ selection and keyboard navigation. There is no separate drawn settings overlay.
 Controller pages use the stock Video Settings frame, highlighted rows and a
 category sidebar for General, Look / Sensitivity, Sticks / Triggers, Menu Scroll,
 and Button Mapping.
+From a settings row, B / Circle returns focus to the current category so you can
+choose another page. Press it again from the category list to leave Controller.
 
 The D-pad and either stick navigate. A / Cross and Start / Options select;
 B / Circle and Back / Share return. Y / Triangle invokes the native F1 action and

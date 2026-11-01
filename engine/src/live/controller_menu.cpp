@@ -128,7 +128,7 @@ void Init(Page& p,const char* name,const char* title,const char* first,bool navi
     p.menu.fullScreen=1; p.menu.imageTrack=3; p.menu.fadeClamp=1;
     p.menu.fadeAmount=p.menu.fadeInAmount=.1f; p.menu.fadeCycle=1;
     p.menu.items=p.pointers.data(); p.menu.cursorItem[0]=-1;
-    p.escape="close "+std::string(name)+" ;"; p.menu.onESC=p.escape.c_str();
+    p.escape="execnow controller_back ;"; p.menu.onESC=p.escape.c_str();
     p.focus="setfocus "+std::string(first)+" ;"; p.menu.onOpen=p.focus.c_str();
     p.native=nativeStyle.options&&nativeStyle.graphics&&nativeStyle.choice>=5;
     if(p.native) {
@@ -544,6 +544,33 @@ void Open() {
     if(!context) return;
     if(!Key_IsCatcherActive(0,KEYCATCH_UI)) UI_SetActiveMenu(0,CL_GetLocalClientConnectionState(0)==CA_ACTIVE?UIMENU_INGAME:UIMENU_MAIN);
     Menus_OpenByName(context,"live_controller");
+}
+void Back() {
+    if(!context) return;
+    auto* menu=Menu_GetFocused(context);
+    if(!menu) return;
+    for(auto* p:{&general,&response,&sticks,&timing,&bindings}) {
+        if(menu!=&p->menu) continue;
+        if(p->native) {
+            itemDef_s* category=nullptr;
+            int categoryIndex=-1;
+            bool inSidebar=false;
+            for(int i=0;i<menu->itemCount;++i) {
+                auto* item=menu->items[i];
+                const char* name=item->window.name;
+                if(!name) continue;
+                if(!std::strcmp(name,menu->window.name)) { category=item;categoryIndex=i; }
+                if((item->window.dynamicFlags[0]&2)&&
+                    (!std::strncmp(name,"live_controller",15)||!std::strcmp(name,"live_back"))) inSidebar=true;
+            }
+            if(!inSidebar&&category&&Item_SetFocus(context,category,category->window.rect.x,category->window.rect.y)) {
+                menu->cursorItem[context->localClientNum]=categoryIndex;
+                return;
+            }
+        }
+        Menus_CloseByName(context,menu->window.name);
+        return;
+    }
 }
 bool IsOpen() {
     const char* menu=UI_GetTopActiveMenuName(0);

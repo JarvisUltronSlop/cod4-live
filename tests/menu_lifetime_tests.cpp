@@ -14,6 +14,15 @@
 int I_stricmp(const char* a,const char* b) { return _stricmp(a,b); }
 void Com_DPrintf(int,const char*,...) {}
 void Com_Error(errorParm_t,const char*,...) { std::abort(); }
+menuDef_t* focusedMenu{};
+int closedMenus{};
+menuDef_t* Menu_GetFocused(UiContext*) { return focusedMenu; }
+void Menus_CloseByName(UiContext*,const char*) { ++closedMenus; }
+int Item_SetFocus(UiContext*,itemDef_s* item,float,float) {
+    for(int i=0;i<item->parent->itemCount;++i) item->parent->items[i]->window.dynamicFlags[0]&=~2;
+    item->window.dynamicFlags[0]|=2;
+    return 1;
+}
 namespace live::bots_ui {
 void ConfigureCapacityItem(itemDef_s* item) { item->dvar="capacity_index"; }
 void ConfigureBotItem(itemDef_s* item,bool difficulty) { item->dvar=difficulty?"difficulty":"bots"; }
@@ -24,6 +33,7 @@ namespace live::controller_ui {
 UiContext* context{};
 int inspected{};
 char footer[512]{};
+struct PageFixture { menuDef_t menu{};bool native=true; } general,response,sticks,timing,bindings;
 bool Contains(const char* text,const char* fragment) { return text&&std::strstr(text,fragment); }
 void Color(float (&c)[4],float r,float g,float b,float a=1) { c[0]=r;c[1]=g;c[2]=b;c[3]=a; }
 #include "generated_menu_lifetime.inc"
@@ -40,6 +50,26 @@ int main() {
     Append(fixtureContext.get(),&shared);
     Require(fixtureContext->menuCount==2&&fixtureContext->Menus[0]==&shared&&fixtureContext->Menus[1]==&host,
         "late in-game style rebuild keeps one context entry per page");
+    context=fixtureContext.get();
+    for(auto* page:{&general,&response,&sticks,&timing,&bindings}) {
+        auto& menu=page->menu;menu.window.name="live_controller_category";
+        itemDef_s category{},setting{},back{};
+        category.window.name=menu.window.name;setting.window.name="controller_setting";back.window.name="live_back";
+        category.parent=setting.parent=back.parent=&menu;
+        itemDef_s* rows[]{&category,&setting,&back};menu.items=rows;menu.itemCount=3;
+        focusedMenu=&menu;closedMenus=0;setting.window.dynamicFlags[0]=2;
+        Back();
+        Require(!closedMenus&&(category.window.dynamicFlags[0]&2)&&menu.cursorItem[0]==0,
+            "Back from settings returns to the active category");
+        Back();
+        Require(closedMenus==1,"Back from the category list leaves Controller settings");
+        category.window.dynamicFlags[0]=0;back.window.dynamicFlags[0]=2;
+        Back();Require(closedMenus==2,"explicit Back button closes the page");
+        menu.items=nullptr;menu.itemCount=0;
+    }
+    focusedMenu=&shared;closedMenus=0;
+    Back();Require(!closedMenus,"controller Back never closes unrelated menus or confirmation dialogs");
+    context=nullptr;focusedMenu=nullptr;
     itemDef_s original{},capacity{};
     itemDef_s* sharedItems[]{&original};
     itemDef_s* hostItems[]{&capacity};

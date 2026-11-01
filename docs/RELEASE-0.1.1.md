@@ -12,6 +12,7 @@ Controller navigation and server-disconnect improvements for the Windows client.
 - **Controller** now appears in the main menu's normal list, between Controls
   and Options, with the same row styling and highlighting.
 - Controller settings use CoD4's Video Settings frame, rows and category sidebar.
+  B/Circle returns from settings to the category list, then exits on a second press.
   Input Backend changes require Apply and confirmation. An unavailable backend
   automatically reverts after 15 seconds; only a detected controller's backend
   is saved.
@@ -36,3 +37,8 @@ This remains an early Win32/DX9 multiplayer release. Steam direct ownership and
 a controller are required. Protocol 10003 is unchanged. Use direct connections,
 Favorites or LAN; no public master service is deployed. The installer is unsigned.
 Matching source archives, license notices and SHA-256 checksums are included.
+
+Validation: 16 automated suites pass. USB DualSense checks cover graphics Apply
+and inline match setup. Remote and local policy kicks return to the frontend;
+the local server stops. The real 0.1-to-0.1.1 installer upgrade and repair preserve
+profiles/server configuration and leave the Steam source files unchanged.

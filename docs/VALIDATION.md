@@ -84,6 +84,14 @@ remaining acceptance cases below are not claimed as passed.
   Cancel restored the staged choice without changing the active Native backend.
   Backend-state tests cover successful detection, timeout, late reports, cancel,
   external changes, repeated confirmation and clock wrap.
+- Production Controller Back handling is tested across all five category pages:
+  settings return focus to their sidebar category, then a second Back exits.
+- A real v0.1 installation was upgraded with the 0.1.1 payload and repaired.
+  Client/runtime/content hashes matched, profile and server fixtures survived,
+  and all 343 Steam source paths, sizes and modification times were unchanged.
+  The upgraded dedicated executable launched from outside its installation,
+  served Shipment with protocol 10003, connected to Steam app 7940 and shut down
+  through RCON without script errors.
 
 ### Earlier development checks
 

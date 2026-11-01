@@ -65,7 +65,7 @@ unsigned rumbleEnd{};
 const dvar_t *backend{}, *present{}, *inputUsed{}, *style{}, *sensitivity{}, *adsSensitivity{}, *invert{},
     *inner{}, *outer{}, *triggerDeadzone{}, *buttonConfig{}, *stickConfig{}, *rumble{},
     *antiDeadzone{}, *triggerHysteresis{}, *stickPressed{}, *stickHysteresis{}, *scrollFirst{}, *scrollRest{}, *scrollMin{}, *scrollAcceleration{};
-cmd_function_s settingsCommand{}, menuDumpCommand{}, backendApplyCommand{}, backendCancelCommand{};
+cmd_function_s settingsCommand{}, menuDumpCommand{}, backendApplyCommand{}, backendCancelCommand{}, menuBackCommand{};
 constexpr std::array<engine_key, 16> buttonKeys{
     engine_key::button_a, engine_key::button_b, engine_key::button_x, engine_key::button_y,
     engine_key::dpad_up, engine_key::dpad_down, engine_key::dpad_left, engine_key::dpad_right,
@@ -267,6 +267,7 @@ void Initialize()
     Cmd_AddCommandInternal("controller_menu_dump", controller_ui::Dump, &menuDumpCommand);
     Cmd_AddCommandInternal("controller_apply_backend", controller_ui::ConfirmBackend, &backendApplyCommand);
     Cmd_AddCommandInternal("controller_cancel_backend", controller_ui::CancelBackend, &backendCancelCommand);
+    Cmd_AddCommandInternal("controller_back", controller_ui::Back, &menuBackCommand);
     ready = true;
 }
 
@@ -287,6 +288,7 @@ void Shutdown()
     Cmd_RemoveCommand("controller_menu_dump");
     Cmd_RemoveCommand("controller_apply_backend");
     Cmd_RemoveCommand("controller_cancel_backend");
+    Cmd_RemoveCommand("controller_back");
 }
 
 bool GameplayContext()

@@ -1172,12 +1172,13 @@ void Com_ErrorCleanup()
     }
     else
     {
-        if (cls.uiStarted && errorcode != ERR_DROP)
+        if (cls.uiStarted && errorcode != ERR_DROP && errorcode != ERR_SERVERDISCONNECT)
         {
             MenuScreenForError = UI_GetMenuScreenForError();
             UI_SetActiveMenu(0, (uiMenuCommand_t)MenuScreenForError);
         }
-        Com_SetErrorMessage(com_errorMessage);
+        if (errorcode != ERR_SERVERDISCONNECT)
+            Com_SetErrorMessage(com_errorMessage);
     }
     if (fs_debug && fs_debug->current.integer == 2)
         Dvar_SetInt((dvar_s*)fs_debug, 0);
@@ -1188,7 +1189,7 @@ void Com_ErrorCleanup()
     CL_FlushDebugServerData();
     CL_UpdateDebugServerData();
     FS_ResetFiles();
-    if (errorcode == ERR_DROP)
+    if (errorcode == ERR_DROP || errorcode == ERR_SERVERDISCONNECT)
         Cbuf_Init();
     v5 = Sys_Milliseconds();
     if ((int)(v5 - lastErrorTime) >= 100)
@@ -1205,7 +1206,12 @@ void Com_ErrorCleanup()
     updateScreenCalled = 0;
     if (errorcode == ERR_SERVERDISCONNECT)
     {
-        Com_ShutdownInternal("EXE_DISCONNECTEDFROMOWNLISTENSERVER");
+        // Tear down any listen server along with the client, then let Com_Frame
+        // reload the frontend. Do not leave queued map/reconnect commands alive.
+        Com_ShutdownInternal("Disconnected from the server.");
+        // In-game menu onClose scripts can clear the previous error dvar.
+        // Publish the notice after teardown so the fresh frontend displays it.
+        Com_SetErrorMessage(com_errorMessage);
     }
     else
     {

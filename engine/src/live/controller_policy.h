@@ -25,6 +25,7 @@ constexpr int MenuKeyForButton(int key)
     case 2: case 15: return K_ESCAPE;
     case 3: return K_F2;
     case 4: return K_F1;
+    case 5: case 6: return key; // shoulders move focus without editing a widget
     default: return 0;
     }
 }

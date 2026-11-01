@@ -13,7 +13,7 @@ folder. It installs our compiled Win32/DX9 client/server and copies the player's
 retail assets locally. It never modifies the original Steam installation. Retail
 assets and proprietary middleware are excluded from this repository and installer.
 
-Download the [Windows 0.1 installer](https://github.com/JarvisUltronSlop/cod4-live/releases/tag/v0.1)
+Download the [Windows 0.1.1 installer](https://github.com/JarvisUltronSlop/cod4-live/releases/tag/v0.1.1)
 to install without developer tools. Keep the vanilla Steam game installed, confirm
 the detected source folder, and select a separate output folder for cod4-live.
 

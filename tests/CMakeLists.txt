@@ -23,6 +23,10 @@ add_executable(input_policy_tests ${CMAKE_CURRENT_LIST_DIR}/input_policy_tests.c
 target_compile_features(input_policy_tests PRIVATE cxx_std_20)
 target_include_directories(input_policy_tests PRIVATE ${CMAKE_CURRENT_LIST_DIR}/../engine/src)
 add_test(NAME input_policy COMMAND input_policy_tests)
+add_executable(backend_switch_tests "${CMAKE_CURRENT_LIST_DIR}/backend_switch_tests.cpp")
+target_compile_features(backend_switch_tests PRIVATE cxx_std_20)
+target_include_directories(backend_switch_tests PRIVATE "${CMAKE_CURRENT_LIST_DIR}/../engine/src")
+add_test(NAME backend_switch COMMAND backend_switch_tests)
 add_executable(bot_policy_tests ${CMAKE_CURRENT_LIST_DIR}/bot_policy_tests.cpp)
 target_compile_features(bot_policy_tests PRIVATE cxx_std_20)
 target_include_directories(bot_policy_tests PRIVATE ${CMAKE_CURRENT_LIST_DIR}/../engine/src)
@@ -89,8 +93,27 @@ add_custom_command(OUTPUT "${native_enum_source}"
     VERBATIM)
 add_executable(native_enum_tests "${CMAKE_CURRENT_LIST_DIR}/native_enum_tests.cpp" "${native_enum_source}")
 target_compile_features(native_enum_tests PRIVATE cxx_std_20)
+target_compile_definitions(native_enum_tests PRIVATE COD4_LIVE_CONTROLLER=1)
 target_include_directories(native_enum_tests PRIVATE "${CMAKE_CURRENT_BINARY_DIR}" "${CMAKE_CURRENT_LIST_DIR}/../engine/src")
 add_test(NAME native_enum COMMAND native_enum_tests)
+set(menu_lifetime_source "${CMAKE_CURRENT_BINARY_DIR}/generated_menu_lifetime.inc")
+add_custom_command(OUTPUT "${menu_lifetime_source}"
+    COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_LIST_DIR}/extract_menu_lifetime.py"
+        "${CMAKE_CURRENT_LIST_DIR}/../engine/src/live/controller_menu.cpp" "${menu_lifetime_source}"
+    DEPENDS "${CMAKE_CURRENT_LIST_DIR}/extract_menu_lifetime.py"
+        "${CMAKE_CURRENT_LIST_DIR}/../engine/src/live/controller_menu.cpp"
+    VERBATIM)
+add_executable(menu_lifetime_tests "${CMAKE_CURRENT_LIST_DIR}/menu_lifetime_tests.cpp" "${menu_lifetime_source}")
+target_compile_features(menu_lifetime_tests PRIVATE cxx_std_20)
+target_compile_definitions(menu_lifetime_tests PRIVATE KISAK_MP=1 WIN32 RELEASE_ASSERTS)
+target_include_directories(menu_lifetime_tests PRIVATE "${CMAKE_CURRENT_BINARY_DIR}" "${CMAKE_CURRENT_LIST_DIR}/../engine/src")
+add_test(NAME menu_lifetime COMMAND menu_lifetime_tests)
+add_executable(host_menu_tests "${CMAKE_CURRENT_LIST_DIR}/host_menu_tests.cpp"
+    "${CMAKE_CURRENT_LIST_DIR}/../engine/src/live/host_menu.cpp")
+target_compile_features(host_menu_tests PRIVATE cxx_std_20)
+target_compile_definitions(host_menu_tests PRIVATE KISAK_MP=1 WIN32 RELEASE_ASSERTS)
+target_include_directories(host_menu_tests PRIVATE "${CMAKE_CURRENT_LIST_DIR}/../engine/src")
+add_test(NAME host_menu COMMAND host_menu_tests)
 set(binding_prompt_source "${CMAKE_CURRENT_BINARY_DIR}/generated_binding_prompts.inc")
 add_custom_command(OUTPUT "${binding_prompt_source}"
     COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_LIST_DIR}/extract_binding_prompts.py"

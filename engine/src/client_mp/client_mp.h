@@ -554,7 +554,7 @@ bool __cdecl CL_WasMapAlreadyLoaded();
 void __cdecl CL_DownloadsComplete(int32_t localClientNum);
 void __cdecl CL_CheckForResend(int localClientNum);
 int32_t __cdecl CL_HighestPriorityStatPacket(clientConnection_t *clc);
-void __cdecl CL_DisconnectError(char *message);
+void __cdecl CL_DisconnectError(const char *message);
 char __cdecl CL_ConnectionlessPacket(int localClientNum, netadr_t from, msg_t *msg, int32_t time);
 char __cdecl CL_DispatchConnectionlessPacket(int localClientNum, netadr_t from, msg_t *msg, int32_t time);
 void __cdecl CL_DisconnectPacket(int32_t localClientNum, netadr_t from, char *reason);

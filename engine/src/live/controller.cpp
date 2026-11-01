@@ -65,7 +65,7 @@ unsigned rumbleEnd{};
 const dvar_t *backend{}, *present{}, *inputUsed{}, *style{}, *sensitivity{}, *adsSensitivity{}, *invert{},
     *inner{}, *outer{}, *triggerDeadzone{}, *buttonConfig{}, *stickConfig{}, *rumble{},
     *antiDeadzone{}, *triggerHysteresis{}, *stickPressed{}, *stickHysteresis{}, *scrollFirst{}, *scrollRest{}, *scrollMin{}, *scrollAcceleration{};
-cmd_function_s settingsCommand{}, menuDumpCommand{};
+cmd_function_s settingsCommand{}, menuDumpCommand{}, backendApplyCommand{}, backendCancelCommand{};
 constexpr std::array<engine_key, 16> buttonKeys{
     engine_key::button_a, engine_key::button_b, engine_key::button_x, engine_key::button_y,
     engine_key::dpad_up, engine_key::dpad_down, engine_key::dpad_left, engine_key::dpad_right,
@@ -265,6 +265,8 @@ void Initialize()
     scrollAcceleration = Dvar_RegisterInt("gpad_menu_scroll_accel_time", 1500, 0, 5000, DVAR_ARCHIVE, "Menu scroll acceleration time");
     Cmd_AddCommandInternal("controller_settings", OpenSettings, &settingsCommand);
     Cmd_AddCommandInternal("controller_menu_dump", controller_ui::Dump, &menuDumpCommand);
+    Cmd_AddCommandInternal("controller_apply_backend", controller_ui::ConfirmBackend, &backendApplyCommand);
+    Cmd_AddCommandInternal("controller_cancel_backend", controller_ui::CancelBackend, &backendCancelCommand);
     ready = true;
 }
 
@@ -273,6 +275,7 @@ void Shutdown()
     ResetDispatch();
     if (!ready) return;
     ReleaseAll();
+    controller_ui::CancelBackend();
     devices.reset();
     active = {};
     connected = false;
@@ -282,6 +285,8 @@ void Shutdown()
     ready = false;
     Cmd_RemoveCommand("controller_settings");
     Cmd_RemoveCommand("controller_menu_dump");
+    Cmd_RemoveCommand("controller_apply_backend");
+    Cmd_RemoveCommand("controller_cancel_backend");
 }
 
 bool GameplayContext()
@@ -377,13 +382,14 @@ void PollFrame(bool hasFocus)
         ClearBackgroundInput();
     }
     ApplyLayout();
-    if (mode != backend->current.integer)
+    const int requestedBackend=controller_ui::RequestedBackend();
+    if (mode != requestedBackend)
     {
         ReleaseAll();
         devices.reset();
         active = {};
         connected = false;
-        mode = backend->current.integer;
+        mode = requestedBackend;
         devices = std::make_unique<Devices>(mode == 0);
     }
     auto& d = *devices;
@@ -420,6 +426,7 @@ void PollFrame(bool hasFocus)
     const auto availability = Availability(focused, selected.has_value(), fresh, lastSample, now);
     connected = availability.present;
     Dvar_SetBool(present, connected);
+    controller_ui::ObserveBackend(connected);
     UpdateDisconnectPrompt();
     // HID reports arrive continuously; XInput poll was adapted to publish idle
     // samples too. A stale stream never keeps a stuck trigger or approval alive.

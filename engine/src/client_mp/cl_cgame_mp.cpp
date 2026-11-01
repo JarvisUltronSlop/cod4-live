@@ -237,13 +237,7 @@ void __cdecl CL_DumpReliableCommands(int32_t localClientNum)
 int32_t __cdecl CL_CGameNeedsServerCommand(int32_t localClientNum, int32_t serverCommandNumber)
 {
     int32_t result; // eax
-    const char *v3; // eax
-    char *v4; // eax
-    char *v5; // eax
-    const char *v6; // eax
-    char *v7; // eax
     const char *v8; // eax
-    const char *v9; // [esp-4h] [ebp-9Ch]
     const char *v10; // [esp-4h] [ebp-9Ch]
     clientActive_t *LocalClientGlobals; // [esp+84h] [ebp-14h]
     clientConnection_t *clc; // [esp+88h] [ebp-10h]
@@ -288,23 +282,7 @@ int32_t __cdecl CL_CGameNeedsServerCommand(int32_t localClientNum, int32_t serve
             CL_ConfigstringModified(localClientNum);
             return 1;
         case 'w':
-            if (argc >= 3 && (v3 = Cmd_Argv(2), !_stricmp(v3, "PB")))
-            {
-                v9 = Cmd_Argv(1);
-                v4 = SEH_SafeTranslateString((char*)"EXE_SERVERDISCONNECTREASON");
-                v5 = UI_ReplaceConversionString(v4, v9);
-                v6 = va("%s", v5);
-                Com_Error(ERR_SERVERDISCONNECT, v6);
-            }
-            else if (argc >= 2)
-            {   
-                v7 = (char *)Cmd_Argv(1);
-                CL_DisconnectError(v7);
-            }
-            else
-            {
-                Com_Error(ERR_SERVERDISCONNECT, "EXE_SERVER_DISCONNECTED");
-            }
+            CL_DisconnectError(argc >= 2 ? Cmd_Argv(1) : nullptr);
             goto $LN7_22;
         case 'x':
         $LN7_22:

@@ -30,6 +30,9 @@ if(COD4LIVE_BUILD_ENGINE)
   foreach(target KisakCOD-mp KisakCOD-dedi)
     set_target_properties(${target} PROPERTIES RUNTIME_OUTPUT_DIRECTORY "$<1:${CMAKE_SOURCE_DIR}/runtime>")
     target_compile_definitions(${target} PRIVATE COD4LIVE=1)
+    # Keep optimized-build symbols beside the binaries for crash diagnostics;
+    # PDBs remain excluded from installer payloads and source control.
+    target_link_options(${target} PRIVATE "$<$<CONFIG:Release>:/DEBUG:FULL>" "$<$<CONFIG:Release>:/OPT:REF>" "$<$<CONFIG:Release>:/OPT:ICF>")
   endforeach()
   cod4live_version_resource(KisakCOD-mp "cod4-live multiplayer client" "cod4-live.exe")
   cod4live_version_resource(KisakCOD-dedi "cod4-live dedicated server" "cod4-live_server.exe")

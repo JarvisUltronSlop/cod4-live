@@ -1,5 +1,6 @@
 #ifdef COD4_LIVE_CONTROLLER
 #include <live/controller.h>
+#include <live/host_menu.h>
 #include <live/controller_prompt_text.h>
 #include <live/iw4x/Mapping/Key.hpp>
 #endif
@@ -2642,6 +2643,17 @@ void __cdecl Menu_HandleKey(UiContext *dc, menuDef_t *menu, int key, int down)
         inHandler = 0;
         return;
     }
+#ifdef COD4_LIVE_CONTROLLER
+    // A shoulder leaves even an actively edited text field. Handle it before
+    // that field consumes raw pad keys, so navigating past name/password works.
+    if(menu&&down&&live::controller::NavigatingMenu()&&(key==5||key==6))
+    {
+        g_editingField=0;g_editItem=nullptr;
+        if(key==5) Menu_SetPrevCursorItem(dc,menu);
+        else Menu_SetNextCursorItem(dc,menu);
+        return;
+    }
+#endif
     if (!g_editingField || !down)
         goto LABEL_13;
     if (!Item_TextField_HandleKey(dc, g_editItem, key))
@@ -3234,6 +3246,11 @@ int Item_HandleKey(UiContext *dc, itemDef_s *item, int key, int down)
         result = Item_ListBox_HandleKey(dc, item, key, down, 0);
         break;
     case 8:
+        if (!Item_ShouldHandleKey(dc, item, key)) return 0;
+        // Stock owner-draw choices (game mode/server filter) only recognize
+        // mouse buttons and Enter. Directional adjustment must not leave them.
+        if (key == K_LEFTARROW) key = K_MOUSE2;
+        else if (key == K_RIGHTARROW) key = K_MOUSE1;
         result = UI_OwnerDrawHandleKey(item->window.ownerDraw, item->window.ownerDrawFlags, &item->special, key);
         break;
     case 0xA:
@@ -3305,7 +3322,14 @@ int __cdecl Item_ListBox_HandleKey(UiContext *dc, itemDef_s *item, int key, int 
             localClientNum,
             1);
     flags = item->window.dynamicFlags[localClientNum];
-    if (!force && (!v13 || (flags & 2) == 0))
+    if (!down || !Item_IsVisible(dc->localClientNum, item) ||
+        ((item->dvarFlags & 3) != 0 && !Item_EnableShowViaDvar(item, 1)))
+        return 0;
+    // Keyboard/controller navigation belongs to the focused list, regardless
+    // of the mouse's last position. Mouse clicks still require pointer overlap.
+    const bool pointerKey = key == K_MOUSE1 || key == K_MOUSE2 || key == K_MOUSE3 ||
+        key == K_MWHEELUP || key == K_MWHEELDOWN;
+    if (!force && ((flags & 2) == 0 || (pointerKey && !v13)))
         return 0;
     UI_OverrideCursorPos(dc->localClientNum, item);
     max = Item_ListBox_MaxScroll(dc->localClientNum, item);
@@ -3445,6 +3469,13 @@ int __cdecl Item_ListBox_HandleKey(UiContext *dc, itemDef_s *item, int key, int 
                 return 1;
             }
         }
+        if ((key == K_ENTER || key == K_KP_ENTER) && !listPtr->notselectable &&
+            ListBox_HasValidCursorPos(dc->localClientNum, item))
+        {
+            UI_FeederSelection(dc->localClientNum, item->special, item->cursorPos[dc->localClientNum]);
+            if (listPtr->doubleClick) Item_RunScript(dc, item, (char*)listPtr->doubleClick);
+            return 1;
+        }
         return 0;
     }
     switch (key)
@@ -3577,7 +3608,9 @@ BOOL __cdecl Item_ContainsMouse(UiContext *dc, itemDef_s *item)
 
 bool __cdecl Item_ShouldHandleKey(UiContext *dc, itemDef_s *item, int key)
 {
-    if (!Window_HasFocus(dc->localClientNum, &item->window))
+    if (!Window_HasFocus(dc->localClientNum, &item->window) ||
+        !Item_IsVisible(dc->localClientNum, item) ||
+        ((item->dvarFlags & 3) != 0 && !Item_EnableShowViaDvar(item, 1)))
         return 0;
     return key != K_MOUSE1 && key != K_MOUSE2 && key != K_MOUSE3 || Item_ContainsMouse(dc, item);
 }
@@ -3605,7 +3638,7 @@ int __cdecl Item_Multi_HandleKey(UiContext *dc, itemDef_s *item, int key)
     count = Item_Multi_CountSettings(item);
     next = Item_List_NextEntryForKey(key, current, count);
     if (next == current)
-        return 0;
+        return count > 0 && (key == K_LEFTARROW || key == K_RIGHTARROW || key == K_ENTER || key == K_PGUP || key == K_PGDN);
     if (multiPtr->strDef)
     {
         Dvar_SetFromStringByName(item->dvar, (char*)multiPtr->dvarStr[next]);
@@ -3727,9 +3760,12 @@ int __cdecl Item_DvarEnum_HandleKey(UiContext *dc, itemDef_s *item, int key)
     count = Item_DvarEnum_CountSettings(item);
     next = Item_List_NextEntryForKey(key, current, count);
     if (next == current)
-        return 0;
+        return count > 0 && (key == K_LEFTARROW || key == K_RIGHTARROW || key == K_ENTER || key == K_PGUP || key == K_PGDN);
     v4 = va("%i", next);
     Dvar_SetFromStringByName(item->dvar, v4);
+#ifdef COD4_LIVE_CONTROLLER
+    live::host_ui::SettingChanged(item);
+#endif
     return 1;
 }
 

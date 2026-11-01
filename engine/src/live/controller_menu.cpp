@@ -3,6 +3,8 @@
 #include "controller_policy.h"
 #include "controller_glyph.h"
 #include "bot_menu.h"
+#include "host_menu.h"
+#include "backend_switch.h"
 #include "input_policy.h"
 #include <universal/q_shared.h>
 #include <client_mp/client_mp.h>
@@ -24,20 +26,32 @@ namespace live::controller_ui {
 namespace {
 struct Page {
     menuDef_t menu{};
-    std::array<itemDef_s, 64> rows{};
-    std::array<itemDef_s*, 64> pointers{};
+    std::array<itemDef_s, 192> rows{};
+    std::array<itemDef_s*, 192> pointers{};
     std::array<multiDef_s, 16> choices{};
     std::array<editFieldDef_s, 16> sliders{};
     std::array<std::array<char, 64>, 16> values{};
     std::array<const char*, 16> valueDvars{};
     std::string escape, focus;
+    std::array<std::string,8> navigation;
+    struct Highlight { itemDef_s* background; itemDef_s* control; bool selected; };
+    std::vector<Highlight> highlights;
+    bool native{};
     int choiceCount{}, sliderCount{}, valueCount{};
 };
-Page general, response, sticks, timing, bindings;
+Page general, response, sticks, timing, bindings, backendConfirm;
 UiContext* context{};
 int inspected{};
-char footer[256]{}, deviceStatus[128]{};
+char footer[512]{}, deviceStatus[160]{}, backendStatus[160]{};
 std::array<std::array<char, 160>, 16> bindingText{};
+std::array<std::array<char, 80>, 16> bindingLabels{};
+controller::BackendSwitch backendSwitch;
+const dvar_s* pendingBackend{};
+unsigned backendNoticeUntil{};
+struct NativeStyle {
+    menuDef_t *background{},*options{},*graphics{};
+    int choice=-1,slider=-1;
+} nativeStyle;
 struct Extension {
     struct Expression {
         std::vector<expressionEntry> entries;
@@ -59,6 +73,7 @@ constexpr const char* stickValues[]{"thumbstick_default", "thumbstick_southpaw",
 constexpr const char* stickNames[]{"Default", "Southpaw", "Legacy", "Legacy southpaw"};
 void Color(float (&c)[4], float r, float g, float b, float a = 1) { c[0]=r; c[1]=g; c[2]=b; c[3]=a; }
 itemDef_s& Item(Page& p, const char* name, const char* text, float x, float y, float width, bool interactive=false) {
+    if(p.menu.itemCount>=static_cast<int>(p.rows.size())) Com_Error(ERR_DROP,"Controller page item limit");
     auto& i=p.rows[p.menu.itemCount];
     p.pointers[p.menu.itemCount++]=&i;
     i={}; i.parent=&p.menu; i.window.name=name;
@@ -71,7 +86,40 @@ itemDef_s& Item(Page& p, const char* name, const char* text, float x, float y, f
     i.text=text; i.imageTrack=3; i.type=interactive ? 1 : 0; i.action="";
     return i;
 }
-void Init(Page& p,const char* name,const char* title,const char* first) {
+itemDef_s& Copy(Page& p,const itemDef_s& source,float dy=0) {
+    auto& i=Item(p,"","",0,0,0);i=source;i.parent=&p.menu;
+    i.window.rect.y+=dy;i.window.rectClient.y+=dy;
+    i.window.dynamicFlags[0]&=~3;i.textRect[0]={};
+    return i;
+}
+void StaticLayout(itemDef_s& i) {
+    i.visibleExp={};i.textExp={};i.rectXExp={};i.rectYExp={};i.rectWExp={};i.rectHExp={};i.forecolorAExp={};
+    i.onKey=nullptr;i.mouseEnter=i.mouseExit=i.mouseEnterText=i.mouseExitText=nullptr;
+    i.onFocus=i.leaveFocus=i.onAccept=nullptr;i.dvarFlags=0;
+    i.window.dynamicFlags[0]=4|0x10000;
+}
+itemDef_s& NativeRow(Page& p,const char* name,const char* label,int row,bool navigation=false,bool selected=false) {
+    const auto* menu=navigation?nativeStyle.options:nativeStyle.graphics;
+    const int valueIndex=navigation?14:nativeStyle.choice;
+    const int backgroundIndex=navigation?10:valueIndex-5;
+    const float dy=row*(navigation?24.f:22.f);
+    itemDef_s* highlights[2]{};
+    for(int n=0;n<4;++n) {
+        auto& bg=Copy(p,*menu->items[backgroundIndex+n],dy);StaticLayout(bg);
+        if(n>=2) highlights[n-2]=&bg;
+    }
+    if(!navigation) {
+        auto& text=Copy(p,*menu->items[valueIndex-1],dy);StaticLayout(text);
+        text.window.name="live_label";text.text=label;
+    }
+    auto& value=Copy(p,*menu->items[valueIndex],dy);StaticLayout(value);
+    value.window.name=name;value.text=navigation?label:"";
+    value.action="play mouse_click ;";value.onFocus="play mouse_over ;";
+    value.window.staticFlags&=~0x100000;
+    for(auto* bg:highlights) p.highlights.push_back({bg,&value,selected});
+    return value;
+}
+void Init(Page& p,const char* name,const char* title,const char* first,bool navigation=true) {
     p=Page{}; p.menu.window.name=name;
     p.menu.window.rect=p.menu.window.rectClient={0,0,640,480,0,0};
     p.menu.window.style=1;
@@ -82,6 +130,34 @@ void Init(Page& p,const char* name,const char* title,const char* first) {
     p.menu.items=p.pointers.data(); p.menu.cursorItem[0]=-1;
     p.escape="close "+std::string(name)+" ;"; p.menu.onESC=p.escape.c_str();
     p.focus="setfocus "+std::string(first)+" ;"; p.menu.onOpen=p.focus.c_str();
+    p.native=nativeStyle.options&&nativeStyle.graphics&&nativeStyle.choice>=5;
+    if(p.native) {
+        p.menu.window.style=0;
+        // Keep underlying team/pause menu text out of this settings page.
+        p.menu.fullScreen=1;
+        // Draw the player's own CoD4 materials and the same frame/row assets as
+        // Video Settings. These copies never enter or mutate the asset database.
+        if(nativeStyle.background) for(int i=0;i<std::min(10,nativeStyle.background->itemCount);++i) Copy(p,*nativeStyle.background->items[i]);
+        for(int i=0;i<8;++i) Copy(p,*nativeStyle.options->items[i]);
+        auto& heading=Copy(p,*nativeStyle.options->items[9]);StaticLayout(heading);heading.text="Controller";
+        auto& back=Copy(p,*nativeStyle.options->items[8]);StaticLayout(back);
+        back.window.name="live_back";back.text="@MENU_BACK";back.action=p.escape.c_str();
+        auto& section=Item(p,"live_section",title,350,12,280);
+        section.fontEnum=heading.fontEnum;section.textscale=.4f;section.textAlignMode=1;
+        if(navigation) {
+            constexpr const char* names[]{"live_controller","live_controller_response","live_controller_sticks","live_controller_timing","live_controller_bindings"};
+            constexpr const char* labels[]{"General","Look / Sensitivity","Sticks / Triggers","Menu Scroll","Button Mapping"};
+            for(int n=0;n<5;++n) {
+                p.navigation[n]="close "+std::string(name)+" ; open "+names[n]+" ;";
+                auto& link=NativeRow(p,names[n],labels[n],n,true,!std::strcmp(name,names[n]));
+                link.action=p.navigation[n].c_str();
+            }
+        }
+        Item(p,"live_status",deviceStatus,24,200,210).textscale=.25f;
+        Item(p,"live_backend_status",backendStatus,24,235,210).textscale=.25f;
+        Item(p,"live_footer",footer,200,448,410).textscale=.23f;
+        return;
+    }
     auto& heading=Item(p,"live_heading",title,48,30,544); heading.textscale=.56f;
     Color(heading.window.foreColor,.94f,.87f,.5f);
     Item(p,"live_status",deviceStatus,48,66,544).textscale=.25f;
@@ -89,6 +165,7 @@ void Init(Page& p,const char* name,const char* title,const char* first) {
     auto& back=Item(p,"live_back","BACK",48,407,120,true); back.action=p.escape.c_str();
 }
 itemDef_s& Label(Page& p,const char* name,const char* label,int row) {
+    if(p.native) return NativeRow(p,name,label,row);
     Item(p,"live_label",label,64,100+row*27.f,285);
     return Item(p,name,"",355,100+row*27.f,240,true);
 }
@@ -109,14 +186,22 @@ void Toggle(Page& p,const char* name,const char* label,int row,const char* dvar)
 void Slider(Page& p,const char* name,const char* label,int row,const char* dvar,float minimum,float maximum,float def) {
     auto& i=Label(p,name,label,row); auto& slider=p.sliders[p.sliderCount++];
     i.type=i.dataType=10; i.dvar=dvar; i.typeData.editField=&slider; i.textaligny=3;
+    if(p.native&&nativeStyle.slider>=0) {
+        const auto* native=nativeStyle.graphics->items[nativeStyle.slider];
+        i.textalignx=native->textalignx;i.textaligny=native->textaligny;i.textAlignMode=native->textAlignMode;
+    }
     slider.minVal=minimum; slider.maxVal=maximum; slider.defVal=def;
     const int value=p.valueCount++; p.valueDvars[value]=dvar;
-    Item(p,name,p.values[value].data(),470,100+row*27.f,120);
+    if(!p.native) Item(p,name,p.values[value].data(),470,100+row*27.f,120);
 }
 void Link(Page& p,const char* name,const char* label,int row,const char* action) {
+    if(p.native) {
+        auto& i=NativeRow(p,name,label,row);i.type=i.dataType=1;i.dvar=nullptr;i.typeData={};i.text="Select";i.action=action;return;
+    }
     Item(p,name,label,64,100+row*27.f,520,true).action=action;
 }
 void Append(UiContext* dc,menuDef_t* menu) {
+    for(int i=0;i<dc->menuCount;++i) if(dc->Menus[i]==menu) return;
     if (dc->menuCount >= static_cast<int>(std::size(dc->Menus))) Com_Error(ERR_DROP,"Too many native cod4-live menus");
     // Runtime additions are not DB assets; UI_AddMenu's fastfile identity check
     // intentionally applies only to loaded retail assets.
@@ -129,10 +214,22 @@ bool Contains(const char* text,const char* fragment) {
     return lower.find(fragment)!=std::string::npos;
 }
 void Extend(menuDef_t* menu,bool controller,bool bots) {
+    // The code and in-game menu lists can refer to the same DB menu asset.
+    // Extending it twice saves our first allocation as the "original"; UI
+    // shutdown would then leave that asset pointing at freed item storage.
+    if(std::any_of(extensions.begin(),extensions.end(),[menu](const Extension& extension) { return extension.menu==menu; })) {
+        Com_DPrintf(CON_CHANNEL_UI,"Controller menu already extended: %s\n",menu->window.name);
+        return;
+    }
     Extension extension; extension.menu=menu; extension.original=menu->items; extension.originalCount=menu->itemCount;
     const itemDef_s* capacity=nullptr;
+    const itemDef_s* controls=nullptr;
     for(int i=0;i<menu->itemCount;++i)
-        if(menu->items[i]->dvar&&!I_stricmp(menu->items[i]->dvar,"sv_maxclients")) capacity=menu->items[i];
+    {
+        const auto* item=menu->items[i];
+        if(item->dvar&&!I_stricmp(item->dvar,"sv_maxclients")) capacity=item;
+        if(controller&&!I_stricmp(menu->window.name,"main_text")&&Contains(item->action,"main_controls")) controls=item;
+    }
     const bool inlineBots=bots&&capacity;
     auto copy=[&](const itemDef_s* source,float dy) {
         auto item=std::make_unique<itemDef_s>(*source);
@@ -143,8 +240,40 @@ void Extend(menuDef_t* menu,bool controller,bool bots) {
         extension.items.push_back(std::move(item));
         return result;
     };
+    auto copyHighlight=[&](itemDef_s* item,const itemDef_s* source,int oldIndex,int newIndex) {
+        if(!source->visibleExp.numEntries) return;
+        auto expr=std::make_unique<Extension::Expression>();
+        for(int e=0;e<source->visibleExp.numEntries;++e) {
+            auto entry=*source->visibleExp.entries[e];
+            if(entry.type==1&&entry.data.operand.dataType==VAL_INT&&entry.data.operand.internals.intVal==oldIndex)
+                entry.data.operand.internals.intVal=newIndex;
+            expr->entries.push_back(entry);
+        }
+        for(auto& entry:expr->entries) expr->pointers.push_back(&entry);
+        item->visibleExp={static_cast<int>(expr->pointers.size()),expr->pointers.data()};
+        extension.expressions.push_back(std::move(expr));
+    };
+    auto appendControllerRow=[&] {
+        for(int n=0;n<menu->itemCount;++n) {
+            const auto* source=menu->items[n];
+            if(source->window.rectClient.horzAlign!=controls->window.rectClient.horzAlign||
+                source->window.rectClient.y!=controls->window.rectClient.y||
+                source->window.rectClient.x<0||source->window.rectClient.x>=controls->window.rectClient.w) continue;
+            auto* item=copy(source,0);item->rectYExp={};
+            // The pinned main menu uses highlight 7 for Controls. Preserve the
+            // stock row's normal/highlight expressions with a new row identity.
+            copyHighlight(item,source,7,64);
+            if(source==controls) {
+                item->window.name="live_controller_entry";
+                item->text="Controller";item->textExp={};
+                item->action="play mouse_click ; open live_controller ;";
+                item->onFocus="play mouse_over ; setLocalVarInt ui_highlight 64 ; setLocalVarString ui_choicegroup main ;";
+            }
+            extension.pointers.push_back(item);
+        }
+    };
     auto appendBotRows=[&] {
-        for(int row=0;row<2;++row) {
+        for(int row=0;row<3;++row) {
             const int highlight=64+row;
             auto focus=std::make_unique<std::string>("play mouse_over ; setLocalVarInt ui_highlight "+
                 std::to_string(highlight)+" ; setLocalVarString ui_choicegroup "+menu->window.name+" ;");
@@ -159,12 +288,13 @@ void Extend(menuDef_t* menu,bool controller,bool bots) {
                 auto* item=copy(source,24.f*(row+1));
                 item->rectYExp={};
                 if(source==capacity) {
-                    item->window.name=row?"live_bot_difficulty":"live_bot_count";
+                    item->window.name=row==2?"live_host_map":row?"live_bot_difficulty":"live_bot_count";
                     item->onFocus=onFocus;
-                    bots_ui::ConfigureBotItem(item,row!=0);
+                    if(row==2) host_ui::ConfigureMapItem(item);
+                    else bots_ui::ConfigureBotItem(item,row!=0);
                 } else if(source->textExp.numEntries||(source->text&&*source->text)) {
-                    item->window.name=row?"live_bot_difficulty_label":"live_bot_count_label";
-                    item->text=row?"BOT DIFFICULTY":bots_ui::CountLabel();
+                    item->window.name=row==2?"live_host_map_label":row?"live_bot_difficulty_label":"live_bot_count_label";
+                    item->text=row==2?"MAP":row?"BOT DIFFICULTY":bots_ui::CountLabel();
                     item->textExp={};
                     item->window.staticFlags|=0x100000;
                 } else if(source->visibleExp.numEntries) {
@@ -189,7 +319,13 @@ void Extend(menuDef_t* menu,bool controller,bool bots) {
     for(int n=0;n<menu->itemCount;++n) {
         auto* original=menu->items[n];
         auto* item=original;
-        if(original==capacity) {
+        if(controls&&original->window.rectClient.horzAlign==controls->window.rectClient.horzAlign&&
+            original->window.rectClient.y>=120&&original->window.rectClient.y<=controls->window.rectClient.y&&
+            original->window.rectClient.x>=0&&original->window.rectClient.x<300) {
+            // Use the spare space above the list, keeping Quit and the native
+            // footer at their original positions after inserting a full row.
+            item=copy(original,-24);item->rectYExp={};
+        } else if(original==capacity) {
             item=copy(original,0);
             bots_ui::ConfigureCapacityItem(item);
         } else if(inlineBots&&original->window.rectClient.horzAlign==capacity->window.rectClient.horzAlign&&
@@ -197,9 +333,10 @@ void Extend(menuDef_t* menu,bool controller,bool bots) {
             original->window.rectClient.y>capacity->window.rectClient.y&&
             original->window.rectClient.y<=400&&original->window.rectClient.x>=0&&
             original->window.rectClient.x<capacity->window.rectClient.w) {
-            item=copy(original,48);
+            item=copy(original,72);
         }
         extension.pointers.push_back(item);
+        if(original==controls) appendControllerRow();
         if(inlineBots&&original==capacity) appendBotRows();
     }
     // Controller navigation retains its existing narrow right-column entry.
@@ -214,7 +351,7 @@ void Extend(menuDef_t* menu,bool controller,bool bots) {
         i.textStyle=3; i.textaligny=20; i.text=text; i.action=action; i.imageTrack=3;
         extension.pointers.push_back(item.get()); extension.items.push_back(std::move(item));
     };
-    if(controller) add("live_controller_entry","CONTROLLER","open live_controller ;",355);
+    if(controller&&!controls) add("live_controller_entry","CONTROLLER","open live_controller ;",355);
     add("live_controller_help",footer,"",453);
     auto& help=*extension.items.back();
     help.window.staticFlags=0x100000;
@@ -256,55 +393,107 @@ void BeforeInitialize() {
     for(auto& extension:extensions) { extension.menu->items=extension.original; extension.menu->itemCount=extension.originalCount; }
     extensions.clear(); inspected=0; context=nullptr;
 }
+static void BuildPages(UiContext* dc) {
+    nativeStyle={};
+    nativeStyle.background=Menus_FindByName(dc,"main_text");
+    nativeStyle.options=Menus_FindByName(dc,"main_options");
+    nativeStyle.graphics=Menus_FindByName(dc,"options_graphics");
+    if(nativeStyle.options&&nativeStyle.options->itemCount<15) nativeStyle.options=nullptr;
+    if(nativeStyle.graphics) for(int i=0;i<nativeStyle.graphics->itemCount;++i) {
+        const auto* item=nativeStyle.graphics->items[i];
+        if(item->dvar&&!I_stricmp(item->dvar,"ui_r_mode")) nativeStyle.choice=i;
+        if(item->dvar&&!I_stricmp(item->dvar,"r_gamma")) nativeStyle.slider=i;
+    }
+    pendingBackend=Dvar_RegisterInt("ui_live_gpadBackend",Dvar_GetInt("gpad_backend"),0,1,DVAR_NOFLAG,"Pending input backend; apply to test and save");
+    Dvar_SetInt(pendingBackend,backendSwitch.Effective(Dvar_GetInt("gpad_backend")));
+    Init(general,"live_controller","General","controller_backend");
+    constexpr const char* modes[]{"Native","Steam Input"}; constexpr float binary[]{0,1};
+    Floats(general,"controller_backend","Input Backend",0,"ui_live_gpadBackend",modes,binary,2);
+    Strings(general,"controller_buttons","Button Layout",1,"gpad_buttonConfig",layoutNames,layoutValues,8);
+    Strings(general,"controller_sticks","Stick Layout",2,"gpad_sticksConfig",stickNames,stickValues,4);
+    constexpr const char* prompts[]{"Automatic","PlayStation","Xbox"}; constexpr float styles[]{0,1,2};
+    Floats(general,"controller_prompts","Button Prompts",3,"gpad_style",prompts,styles,3);
+    Toggle(general,"controller_rumble","Vibration",4,"gpad_rumble");
+    Slider(general,"controller_fov","Field of View Scale",5,"cg_fovScale",1,MaxFovScale,1);
+    Link(general,"controller_apply","Apply Input Backend",6,"open live_controller_backend_confirm ;");
+    if(!general.native) {
+        Link(general,"controller_response","Look / Sensitivity",7,"open live_controller_response ;");
+        Link(general,"controller_deadzone","Sticks / Triggers",8,"open live_controller_sticks ;");
+        Link(general,"controller_timing","Menu Scroll",9,"open live_controller_timing ;");
+        Link(general,"controller_mapping","Button Mapping",10,"open live_controller_bindings ;");
+    }
+    Init(backendConfirm,"live_controller_backend_confirm","Apply Input Backend","backend_cancel",false);
+    Item(backendConfirm,"backend_question","Test the selected input backend?",270,75,340).textscale=.30f;
+    Item(backendConfirm,"backend_help","If no controller is detected within 15 seconds,",270,105,340).textscale=.26f;
+    Item(backendConfirm,"backend_help2","the previous backend is restored automatically.",270,125,340).textscale=.26f;
+    Link(backendConfirm,"backend_cancel","Cancel",7,"execnow controller_cancel_backend ; close live_controller_backend_confirm ;");
+    Link(backendConfirm,"backend_apply","Apply",8,"execnow controller_apply_backend ; close live_controller_backend_confirm ;");
+    backendConfirm.escape="execnow controller_cancel_backend ; close live_controller_backend_confirm ;";
+    backendConfirm.menu.onESC=backendConfirm.escape.c_str();
+    for(int i=0;i<backendConfirm.menu.itemCount;++i) {
+        auto* item=backendConfirm.menu.items[i];
+        if(item->window.name&&!std::strcmp(item->window.name,"live_back")) item->action=backendConfirm.escape.c_str();
+    }
+    Init(response,"live_controller_response","Look / Sensitivity","controller_preset");
+    constexpr const char* presets[]{"1 (Low)","2 (Medium)","3","4 (High)","5","6","7 (Very high)","8","9","10 (Insane)"};
+    constexpr float multipliers[]{.6f,1,1.4f,1.8f,2,2.2f,2.6f,3,3.5f,4};
+    Floats(response,"controller_preset","Sensitivity Preset",0,"input_viewSensitivity",presets,multipliers,10);
+    Slider(response,"controller_sensitivity","Look Sensitivity",1,"input_viewSensitivity",.05f,5,1);
+    Slider(response,"controller_ads","ADS Sensitivity",2,"gpad_adsSensitivity",.25f,2,1);
+    Toggle(response,"controller_invert","Invert Look",3,"input_invertPitch");
+    Item(response,"controller_fixed","Aim assistance and response tuning are fixed for everyone.",64,270,520).textscale=.27f;
+    Init(sticks,"live_controller_sticks","Sticks / Triggers","controller_inner");
+    Slider(sticks,"controller_inner","Inner Deadzone",0,"gpad_stick_deadzone_min",0,.9f,.2f);
+    Slider(sticks,"controller_outer","Outer Deadzone",1,"gpad_stick_deadzone_max",0,.5f,.01f);
+    Slider(sticks,"controller_anti","Anti-Deadzone",2,"gpad_stick_anti_deadzone",0,.9f,0);
+    Slider(sticks,"controller_press","Menu Stick Threshold",3,"gpad_stick_pressed",.05f,1,.4f);
+    Slider(sticks,"controller_hysteresis","Menu Hysteresis",4,"gpad_stick_pressed_hysteresis",0,.5f,.1f);
+    Slider(sticks,"controller_trigger","Trigger Threshold",5,"gpad_button_deadzone",0,.9f,.13f);
+    Slider(sticks,"controller_trigger_hysteresis","Trigger Hysteresis",6,"gpad_button_deadzone_hysteresis",0,.5f,.05f);
+    Init(timing,"live_controller_timing","Menu Scroll","controller_repeat_first");
+    Slider(timing,"controller_repeat_first","First Delay (ms)",0,"gpad_menu_scroll_delay_first",0,1000,420);
+    Slider(timing,"controller_repeat_rest","Repeat Delay (ms)",1,"gpad_menu_scroll_delay_rest",0,1000,210);
+    Slider(timing,"controller_repeat_min","Fastest Repeat (ms)",2,"gpad_menu_scroll_delay_min",0,1000,50);
+    Slider(timing,"controller_repeat_accel","Acceleration (ms)",3,"gpad_menu_scroll_accel_time",0,5000,1500);
+    Init(bindings,"live_controller_bindings","Button Mapping","live_back");
+    for(int i=0;i<16;++i) {
+        if(bindings.native) {
+            auto& value=NativeRow(bindings,"controller_binding",bindingLabels[i].data(),i);
+            value.type=value.dataType=0;value.dvar=nullptr;value.typeData={};value.text=bindingText[i].data();
+            value.window.staticFlags|=0x100000;value.onFocus=nullptr;value.action=nullptr;
+        } else Item(bindings,"controller_binding",bindingText[i].data(),48+(i/8)*290.f,107+(i%8)*34.f,285).textscale=.30f;
+    }
+    for(auto* p:{&general,&response,&sticks,&timing,&bindings,&backendConfirm}) Append(dc,&p->menu);
+}
 void Initialize(UiContext* dc) {
     context=dc;
     controller_glyph::Initialize();
-    Init(general,"live_controller","CONTROLLER","controller_backend");
-    constexpr const char* modes[]{"Native Xbox / PlayStation","Steam Input (XInput)"}; constexpr float binary[]{0,1};
-    Floats(general,"controller_backend","INPUT BACKEND",0,"gpad_backend",modes,binary,2);
-    Strings(general,"controller_buttons","BUTTON LAYOUT",1,"gpad_buttonConfig",layoutNames,layoutValues,8);
-    Strings(general,"controller_sticks","STICK LAYOUT",2,"gpad_sticksConfig",stickNames,stickValues,4);
-    constexpr const char* prompts[]{"Automatic","PlayStation","Xbox"}; constexpr float styles[]{0,1,2};
-    Floats(general,"controller_prompts","BUTTON PROMPTS",3,"gpad_style",prompts,styles,3);
-    Toggle(general,"controller_rumble","VIBRATION",4,"gpad_rumble");
-    Slider(general,"controller_fov","FIELD OF VIEW SCALE",5,"cg_fovScale",1,MaxFovScale,1);
-    Link(general,"controller_response","LOOK / SENSITIVITY",6,"open live_controller_response ;");
-    Link(general,"controller_deadzone","STICKS / TRIGGERS",7,"open live_controller_sticks ;");
-    Link(general,"controller_timing","MENU SCROLL",8,"open live_controller_timing ;");
-    Link(general,"controller_mapping","VIEW BUTTON MAPPING",9,"open live_controller_bindings ;");
-    Init(response,"live_controller_response","LOOK / SENSITIVITY","controller_preset");
-    constexpr const char* presets[]{"1 (Low)","2 (Medium)","3","4 (High)","5","6","7 (Very high)","8","9","10 (Insane)"};
-    constexpr float multipliers[]{.6f,1,1.4f,1.8f,2,2.2f,2.6f,3,3.5f,4};
-    Floats(response,"controller_preset","IW4X SENSITIVITY PRESET",0,"input_viewSensitivity",presets,multipliers,10);
-    Slider(response,"controller_sensitivity","CUSTOM LOOK SENSITIVITY",1,"input_viewSensitivity",.05f,5,1);
-    Slider(response,"controller_ads","ADS SENSITIVITY",2,"gpad_adsSensitivity",.25f,2,1);
-    Toggle(response,"controller_invert","INVERT LOOK",3,"input_invertPitch");
-    Item(response,"controller_fixed","Aim assistance and response tuning are fixed for everyone.",64,270,520).textscale=.27f;
-    Init(sticks,"live_controller_sticks","STICKS / TRIGGERS","controller_inner");
-    Slider(sticks,"controller_inner","INNER STICK DEADZONE",0,"gpad_stick_deadzone_min",0,.9f,.2f);
-    Slider(sticks,"controller_outer","OUTER STICK DEADZONE",1,"gpad_stick_deadzone_max",0,.5f,.01f);
-    Slider(sticks,"controller_anti","STICK ANTI-DEADZONE",2,"gpad_stick_anti_deadzone",0,.9f,0);
-    Slider(sticks,"controller_press","MENU STICK THRESHOLD",3,"gpad_stick_pressed",.05f,1,.4f);
-    Slider(sticks,"controller_hysteresis","MENU STICK HYSTERESIS",4,"gpad_stick_pressed_hysteresis",0,.5f,.1f);
-    Slider(sticks,"controller_trigger","TRIGGER THRESHOLD",5,"gpad_button_deadzone",0,.9f,.13f);
-    Slider(sticks,"controller_trigger_hysteresis","TRIGGER HYSTERESIS",6,"gpad_button_deadzone_hysteresis",0,.5f,.05f);
-    Init(timing,"live_controller_timing","MENU SCROLL","controller_repeat_first");
-    Slider(timing,"controller_repeat_first","FIRST REPEAT DELAY (MS)",0,"gpad_menu_scroll_delay_first",0,1000,420);
-    Slider(timing,"controller_repeat_rest","REPEAT DELAY (MS)",1,"gpad_menu_scroll_delay_rest",0,1000,210);
-    Slider(timing,"controller_repeat_min","FASTEST REPEAT (MS)",2,"gpad_menu_scroll_delay_min",0,1000,50);
-    Slider(timing,"controller_repeat_accel","ACCELERATION TIME (MS)",3,"gpad_menu_scroll_accel_time",0,5000,1500);
-    Init(bindings,"live_controller_bindings","BUTTON MAPPING","live_back");
-    for(int i=0;i<16;++i) Item(bindings,"controller_binding",bindingText[i].data(),48+(i/8)*290.f,107+(i%8)*34.f,285).textscale=.30f;
-    for(auto* p:{&general,&response,&sticks,&timing,&bindings}) Append(dc,&p->menu);
+    BuildPages(dc);
     bots_ui::Initialize();
+    host_ui::Initialize();
     Refresh(dc);
+}
+void MenusLoaded(UiContext* dc) {
+    // In-game settings arrive after UI_Init's code.txt menus. Rebuild our
+    // still-closed pages once those native templates are available, retaining
+    // the same menu addresses and a single entry per page in the context.
+    if(context==dc&&!general.native&&Menus_FindByName(dc,"options_graphics")) BuildPages(dc);
 }
 void Refresh(UiContext* dc) {
     if(!context) return;
-    bots_ui::Refresh(); Inspect(dc);
-    std::snprintf(deviceStatus,sizeof(deviceStatus),"%s  |  %s",Dvar_GetBool("gpad_present")?"Controller connected":"Connect a controller to play",
-        Dvar_GetInt("gpad_backend")?"Steam Input: use the Gamepad template":"Native controller support");
-    if(controller::InUse()) std::snprintf(footer,sizeof(footer),"%s Select    %s Back    %s %s Adjust",controller::KeyName(1,true),controller::KeyName(2,true),controller::KeyName(22,true),controller::KeyName(23,true));
+    bots_ui::Refresh(); host_ui::Refresh(); Inspect(dc);
+    std::snprintf(deviceStatus,sizeof(deviceStatus),"%s",Dvar_GetBool("gpad_present")?"Controller connected":"Connect a controller to play");
+    const unsigned now=Sys_Milliseconds();
+    if(backendSwitch.pending) std::snprintf(backendStatus,sizeof(backendStatus),"Testing input: %u seconds",(15000-std::min(15000u,now-backendSwitch.started)+999)/1000);
+    else if(!backendNoticeUntil||static_cast<int>(now-backendNoticeUntil)>=0) {
+        if(pendingBackend->current.integer!=Dvar_GetInt("gpad_backend")) std::snprintf(backendStatus,sizeof(backendStatus),"Backend change needs Apply");
+        else std::snprintf(backendStatus,sizeof(backendStatus),"Active: %s",Dvar_GetInt("gpad_backend")?"Steam Input":"Native");
+    }
+    for(auto* p:{&general,&response,&sticks,&timing,&bindings,&backendConfirm}) for(const auto& h:p->highlights) {
+        if(h.selected||(h.control->window.dynamicFlags[0]&2)) h.background->window.dynamicFlags[0]|=4;
+        else h.background->window.dynamicFlags[0]&=~4;
+    }
+    if(controller::InUse()) std::snprintf(footer,sizeof(footer),"%s Select   %s Back   %s %s Adjust   %s %s Change control",controller::KeyName(1,true),controller::KeyName(2,true),controller::KeyName(22,true),controller::KeyName(23,true),controller::KeyName(5,true),controller::KeyName(6,true));
     else std::snprintf(footer,sizeof(footer),"Enter: Select    Escape: Back    Left / Right: Adjust");
     for(auto* p:{&general,&response,&sticks,&timing}) for(int i=0;i<p->valueCount;++i) {
         const auto* value=Dvar_FindVar(p->valueDvars[i]);
@@ -324,7 +513,32 @@ void Refresh(UiContext* dc) {
         sensitivityPresets.count=11;
     }
     constexpr int keys[]{1,2,3,4,18,19,5,6,16,17,14,15,20,21,22,23};
-    for(int i=0;i<16;++i) std::snprintf(bindingText[i].data(),bindingText[i].size(),"%s  %s",controller::KeyName(keys[i],true),ActionName(Key_GetBinding(0,keys[i])));
+    for(int i=0;i<16;++i) {
+        const char* action=ActionName(Key_GetBinding(0,keys[i]));
+        std::snprintf(bindingLabels[i].data(),bindingLabels[i].size(),"%s",action);
+        std::snprintf(bindingText[i].data(),bindingText[i].size(),bindings.native?"%s":"%s  %s",controller::KeyName(keys[i],true),action);
+    }
+}
+void ConfirmBackend() {
+    if(!pendingBackend) return;
+    if(backendSwitch.Begin(Dvar_GetInt("gpad_backend"),pendingBackend->current.integer,Sys_Milliseconds())) backendNoticeUntil=0;
+}
+void CancelBackend() {
+    backendSwitch.pending=false;
+    if(pendingBackend) Dvar_SetInt(pendingBackend,Dvar_GetInt("gpad_backend"));
+    backendNoticeUntil=0;
+}
+int RequestedBackend() { return backendSwitch.Effective(Dvar_GetInt("gpad_backend")); }
+void ObserveBackend(bool present) {
+    const auto result=backendSwitch.Observe(Dvar_GetInt("gpad_backend"),present,Sys_Milliseconds());
+    if(result==controller::BackendSwitch::Result::None) return;
+    if(result==controller::BackendSwitch::Result::Commit) {
+        Dvar_SetIntByName("gpad_backend",backendSwitch.target);
+        std::snprintf(backendStatus,sizeof(backendStatus),"Input backend applied");
+    } else std::snprintf(backendStatus,sizeof(backendStatus),"Previous backend restored");
+    if(pendingBackend) Dvar_SetInt(pendingBackend,Dvar_GetInt("gpad_backend"));
+    backendNoticeUntil=Sys_Milliseconds()+8000;
+    Com_Printf(CON_CHANNEL_UI,"%s\n",backendStatus);
 }
 void Open() {
     if(!context) return;
@@ -350,6 +564,7 @@ void Dump() {
         for(int i=0;i<menu->itemCount && items<256;++i,++items) {
             const auto* item=menu->items[i];
             Com_Printf(CON_CHANNEL_UI,"  [%d] %.64s type=%d flags=%x rect=%.0f %.0f %.0f %.0f text=%.120s action=%.240s\n",i,item->window.name?item->window.name:"",item->type,item->window.dynamicFlags[0],item->window.rect.x,item->window.rect.y,item->window.rect.w,item->window.rect.h,item->text?item->text:"",item->action?item->action:"");
+            Com_Printf(CON_CHANNEL_UI,"       static=%x dvar=%.64s focus=%.180s\n",item->window.staticFlags,item->dvar?item->dvar:"",item->onFocus?item->onFocus:"");
         }
     }
     Com_Printf(CON_CHANNEL_UI,"Controller menu dump end: %d menus, %d items (limit 32/256).\n",menus,items);

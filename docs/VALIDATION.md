@@ -7,9 +7,9 @@ remaining acceptance cases below are not claimed as passed.
 ## Build and automated checks
 
 - Full multiplayer client and dedicated server compile and link successfully.
-- Thirteen engine CTest suites pass: controller-math, input_policy, bot_policy,
+- Sixteen engine CTest suites pass: controller-math, input_policy, backend_switch, bot_policy,
   damage_callback, script_variables, script_references, crosshair_scan,
-  native_enum, binding_prompts, controller_assets, usercmd_codec, server_input,
+  native_enum, menu_lifetime, host_menu, binding_prompts, controller_assets, usercmd_codec, server_input,
   and steam_auth. The separate
   installer suite also passes.
 - Controller tests exercise the vendored IW4x calculations, radial deadzones,
@@ -54,6 +54,38 @@ remaining acceptance cases below are not claimed as passed.
   including concurrent string increments at the 16-bit boundary.
 
 ## Live evidence
+
+### Version 0.1.1
+
+- Expanded native widget tests cover graphics sliders/toggles/choices, disabled
+  controls, single-choice focus, non-hovered list scrolling and activation, and
+  shoulder navigation out of lists, sliders and active text fields.
+- Production menu-extension regression tests repeatedly extend duplicate DB
+  menu references, restore original pointers, tear down allocations and reload.
+  This catches the live kick crash caused by extending shared in-game menu assets
+  twice. Inline main-menu Controller placement preserves the lower rows/footer.
+- Host map tests use the production map-menu code with native-feeder fixtures:
+  immediate selection before Start, browser/row synchronization, game-mode
+  filtering, no-map/invalid selections, 100 custom choices and UI reinitialization.
+- A directly owned Steam session joined the headless Shipment test server.
+  An RCON client kick displayed "Disconnected from the server."; dismissing it
+  returned to the main menu with the client process still running. The dedicated
+  server continued answering status queries with the player removed.
+- The local Shipment controller-disconnect policy also displayed the generic
+  notice and returned to the main menu after dismissal. The client remained
+  alive; `sv_running` was 0 and `status` reported no running server.
+- The user confirmed the inline MAP row, controller-only match setup, graphics
+  choices and Apply work on the USB DualSense.
+- Controller pages were visually checked against the stock Video Settings
+  frame and rows, including sensitivity sliders and all 16 mapping glyphs, in
+  the frontend and after loading the separate in-game menu assets.
+  An unavailable Steam Input trial left Native active until Apply confirmation,
+  then restored Native and detected the USB DualSense again after 15 seconds.
+  Cancel restored the staged choice without changing the active Native backend.
+  Backend-state tests cover successful detection, timeout, late reports, cancel,
+  external changes, repeated confirmation and clock wrap.
+
+### Earlier development checks
 
 - The real app-7940 Steam API accepted a directly owned ticket through the
   asynchronous GameServer callback and revoked it after cancellation. Anonymous

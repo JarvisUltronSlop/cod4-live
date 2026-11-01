@@ -1127,18 +1127,12 @@ int32_t __cdecl CL_HighestPriorityStatPacket(clientConnection_t *clc)
     return oldestPacket;
 }
 
-void __cdecl CL_DisconnectError(char *message)
+void __cdecl CL_DisconnectError(const char *message)
 {
-    char *v1; // eax
-    char *v2; // eax
-    char *v3; // [esp-4h] [ebp-4h]
-
-    if (!message)
-        MyAssertHandler(".\\client_mp\\cl_main_mp.cpp", 3157, 0, "%s", "message");
-    v3 = SEH_SafeTranslateString(message);
-    v1 = SEH_SafeTranslateString((char*)"EXE_SERVERDISCONNECTREASON");
-    v2 = UI_ReplaceConversionString(v1, v3);
-    Com_Error(ERR_SERVERDISCONNECT, v2);
+    // A server kick is a recoverable session exit. Keep its diagnostic reason
+    // in the log, never use remote text as a format string or a fatal error.
+    Com_Printf(CON_CHANNEL_CLIENT, "Server disconnected: %s\n", message ? message : "no reason supplied");
+    Com_Error(ERR_SERVERDISCONNECT, "%s", "Disconnected from the server.");
 }
 
 char __cdecl CL_ConnectionlessPacket(int localClientNum, netadr_t from, msg_t *msg, int32_t time)
@@ -1713,7 +1707,7 @@ void __cdecl CL_DisconnectPacket(int32_t localClientNum, netadr_t from, char *re
                 }
                 else
                 {
-                    Com_Error(ERR_DROP, "EXE_SERVER_DISCONNECTED");
+                    CL_DisconnectError(nullptr);
                 }
             }
         }

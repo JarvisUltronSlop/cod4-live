@@ -4,7 +4,7 @@ Own and install Steam's Call of Duty 4: Modern Warfare (2007), app 7940.
 Modern Warfare Remastered and later games do not provide the correct data.
 
 1. Download the Windows installer from the [GitHub release](https://github.com/JarvisUltronSlop/cod4-live/releases)
-   and run it (`cod4-live-0.1-windows-setup.exe` for version 0.1).
+   and run it (`cod4-live-0.1.1-windows-setup.exe` for version 0.1.1).
 2. Select the vanilla Steam CoD4 directory containing `iw3mp.exe`, `main`, `zone`,
    and `localization.txt`. Setup reads Steam's app-7940 installation manifest
    across its libraries; use Browse if automatic detection cannot find it.
@@ -29,21 +29,34 @@ Native mode supports XInput and compatible PlayStation controllers directly.
 For Steam Input remapping, add `cod4-live.exe` as a non-Steam game in Steam, set its
 working directory to the installation folder, enable Steam Input, select a
 **Gamepad** template, and launch it through Steam. Select Steam Input compatibility
-in cod4-live's controller settings. That mode consumes virtual XInput and prevents
-duplicate physical HID input.
+in cod4-live's controller settings, choose **Apply Input Backend**, and confirm
+**Apply**. That mode consumes virtual XInput and prevents duplicate physical HID
+input. The active backend stays unchanged until confirmation. If the selected
+backend cannot detect a controller within 15 seconds, the previous one is restored.
 
 Mouse/keyboard emulation layouts are not accepted for gameplay. Avoid gyro-to-mouse
 layouts. Virtual Xbox output may use Xbox prompts even with a PlayStation device.
 
 ## Hosting
 
-The native **Start New Server** list has **BOTS** and **BOT DIFFICULTY** rows
+The native **Start New Server** list has **BOTS**, **BOT DIFFICULTY** and **MAP** rows
 directly below **Maximum Players**. Use left/right to adjust them. Zero disables
-bots. One slot always remains available for a human;
+bots. The MAP row cycles available maps for the selected game mode and updates
+the preview, so a controller can choose a map directly in the settings column.
+One slot always remains available for a human;
 the maximum follows the selected server capacity (31 bots at 32 slots, or 63 at
 64 slots). **Controller** opens native settings pages with IW4x glyphs, layout
 profiles, sensitivity presets and custom settings. Keyboard/mouse menus remain
 available, while gameplay requires a controller.
+
+Use D-pad Up/Down to browse a focused map or server list and A/Cross to confirm.
+L1/R1 (LB/RB) move between controls, including leaving a list for the match
+settings or Start button. Left/Right adjust the focused setting. The same controls
+work in graphics options, including sliders and selection lists.
+
+Server kicks return to the main menu with "Disconnected from the server." The
+original reason remains in the console log. If the kicked player was hosting a
+listen server, that local match ends too; a separate dedicated server keeps running.
 
 Run the dedicated binary from the installed folder:
 

@@ -9,6 +9,8 @@ names = (
     "Window_HasFocus", "Item_ShouldHandleKey", "Item_List_NextEntryForKey",
     "Item_DvarEnum_CountSettings", "Item_DvarEnum_EnumIndex",
     "Item_DvarEnum_HandleKey", "Item_HandleKey", "Item_SetFocus", "Menu_HandleKey",
+    "Item_ListBox_HandleKey", "Item_ListBox_Scroll", "Item_ListBox_Page", "Item_ListBox_SetCursorPos",
+    "Item_Slider_HandleKey", "Item_YesNo_HandleKey", "Item_Multi_HandleKey", "Item_Multi_CountSettings", "Item_Multi_FindDvarByValue",
 )
 functions = []
 for name in names:

@@ -1407,6 +1407,9 @@ void __cdecl UI_LoadIngameMenus(int localClientNum)
                 "(localClientNum == 0)",
                 localClientNum);
         UI_AddMenuList(&uiInfoArray.uiDC, menuList);
+#ifdef COD4_LIVE_CONTROLLER
+        live::controller_ui::MenusLoaded(&uiInfoArray.uiDC);
+#endif
     }
 }
 
@@ -2291,11 +2294,9 @@ int __cdecl UI_OwnerDrawHandleKey(int ownerDraw, int flags, float *special, int 
     case 205:
         return UI_GameType_HandleKey(flags, special, key, 1);
     case 220:
-        UI_NetSource_HandleKey(flags, special, key);
-        return 0;
+        return UI_NetSource_HandleKey(flags, special, key);
     case 222:
-        UI_NetFilter_HandleKey(flags, special, key);
-        return 0;
+        return UI_NetFilter_HandleKey(flags, special, key);
     case 245:
         return UI_NetGameType_HandleKey(flags, special, key);
     case 253:

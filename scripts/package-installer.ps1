@@ -1,6 +1,7 @@
 param([string]$Configuration = 'Release', [switch]$SkipBuild, [switch]$TestPayload)
 $ErrorActionPreference = 'Stop'
 $projectRoot = Split-Path -Parent $PSScriptRoot
+$releaseVersion = (Get-Content -LiteralPath (Join-Path $projectRoot 'VERSION') -Raw).Trim()
 $outputRoot = Join-Path $projectRoot 'dist'
 New-Item -ItemType Directory -Path $outputRoot -Force | Out-Null
 if (!$SkipBuild -and !$TestPayload) {
@@ -57,7 +58,7 @@ if (!$TestPayload) {
     Add-PayloadFile (Join-Path $projectRoot 'build/_deps/openal-src/LICENSE-pffft') 'notices/OpenAL-pffft-LICENSE.txt'
     $revision = (& git -C $projectRoot rev-parse HEAD).Trim()
     if ($LASTEXITCODE) { throw 'Cannot identify source revision' }
-    $releaseInfo = [ordered]@{ project='cod4-live'; protocol=10003; sourceRevision=$revision; configuration=$Configuration; packagedUtc=[DateTime]::UtcNow.ToString('o') }
+    $releaseInfo = [ordered]@{ project='cod4-live'; version=$releaseVersion; platform='windows-x86'; protocol=10003; sourceRevision=$revision; configuration=$Configuration; packagedUtc=[DateTime]::UtcNow.ToString('o') }
     $releaseInfo | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $stage 'build.json') -Encoding utf8
     Add-PayloadFile (Join-Path $stage 'build.json') 'notices/build.json'
 }

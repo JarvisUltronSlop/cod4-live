@@ -20,6 +20,11 @@ static void require(bool value, const std::string& message) {
     if (!value) throw std::runtime_error(message);
 }
 int wmain(int argc, wchar_t** argv) {
+    if (argc == 2 && std::wstring(argv[1]) == L"--detect-steam") {
+        const auto game = live::setup::DetectSteam();
+        std::wcout << game.wstring() << L'\n';
+        return game.empty() ? 1 : 0;
+    }
     const bool updateOnly = argc == 4 && std::wstring(argv[3]) == L"--update-only";
     if (argc != 3 && !updateOnly) {
         std::cerr << "install_acceptance <owned Steam CoD4 folder> <new empty destination> [--update-only]\n";

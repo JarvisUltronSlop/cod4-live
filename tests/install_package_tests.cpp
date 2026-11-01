@@ -15,6 +15,66 @@ static std::string get(const fs::path &file) {
     std::ifstream in(file, std::ios::binary);
     return {std::istreambuf_iterator<char>(in), {}};
 }
+static std::string vdfPath(const fs::path &path) {
+    const auto utf8 = path.u8string();
+    std::string result;
+    for (char8_t c : utf8) {
+        if (c == '\\' || c == '"') result += '\\';
+        result += static_cast<char>(c);
+    }
+    return result;
+}
+static void checkSteamDetection(const fs::path &root, const fs::path &retail) {
+    using live::setup::DetectSteam;
+    const auto steam = root / "Steam", library = root / L"Steam Library with spaces \u00e9";
+    const auto primary = steam / "steamapps/common/Call of Duty 4";
+    const auto custom = library / "steamapps/common/Custom CoD4 install";
+    for (const auto &game : {primary, custom}) {
+        fs::create_directories(game.parent_path());
+        fs::copy(retail, game, fs::copy_options::recursive);
+    }
+    const auto folders = steam / "steamapps/libraryfolders.vdf";
+    const auto manifest = library / "steamapps/appmanifest_7940.acf";
+    const std::string validManifest = "\"AppState\" { \"appid\" \"7940\" \"installdir\" \"Custom CoD4 install\" }";
+    const std::string modern = "\xEF\xBB\xBF// library fixture\n\"libraryfolders\" {\n\"1\" {\n\"path\"\n\"" +
+        vdfPath(library) + "\"\n\"apps\" { \"7940\" \"123\" } } }\n";
+    assert(DetectSteam(steam).empty()); // A plausible folder/executable is not an app-7940 manifest.
+    put(folders, modern);
+    put(manifest, validManifest);
+    assert(DetectSteam(steam) == fs::weakly_canonical(custom));
+    put(manifest, "\"AppState\" { \"appid\" \"7941\" \"installdir\" \"Custom CoD4 install\" }");
+    assert(DetectSteam(steam).empty());
+    put(manifest, "\"AppState\" { \"appid\" \"7940\" \"installdir\" \"../Custom CoD4 install\" }");
+    assert(DetectSteam(steam).empty());
+    put(manifest, validManifest);
+    put(folders, "\"LibraryFolders\" { \"1\" \"" + vdfPath(library) + "\" }");
+    assert(DetectSteam(steam) == fs::weakly_canonical(custom)); // Legacy flat library list.
+    put(folders, modern.substr(0, modern.size() - 3));
+    assert(DetectSteam(steam).empty()); // Truncated nested VDF is not partially accepted.
+    put(folders, "\"libraryfolders\" { \"path\" \"" + vdfPath(library) + "\" }");
+    assert(DetectSteam(steam).empty()); // Ignore unrelated path metadata.
+    put(folders, std::string(262145, ' '));
+    assert(DetectSteam(steam).empty());
+    put(folders, "\"oversized\" \"" + std::string(32769, 'x') + "\"\n" + modern.substr(3));
+    assert(DetectSteam(steam).empty());
+    std::string deep;
+    for (int i = 0; i < 18; ++i) deep += "\"nested\" { ";
+    deep += std::string(18, '}') + modern.substr(3);
+    put(folders, deep);
+    assert(DetectSteam(steam).empty());
+    std::string many;
+    for (int i = 0; i < 4097; ++i) many += "\"entry\" \"value\"\n";
+    put(folders, many + modern.substr(3));
+    assert(DetectSteam(steam).empty());
+    put(folders, modern);
+    fs::remove(custom / "binkw32.dll");
+    assert(DetectSteam(steam).empty()); // Incomplete installation stays available to manual browse only.
+    put(custom / "binkw32.dll", "owned middleware fixture");
+    put(steam / "steamapps/appmanifest_7940.acf",
+        "\"AppState\" { \"appid\" \"7940\" \"installdir\" \"Call of Duty 4\" }");
+    assert(DetectSteam(steam) == fs::weakly_canonical(primary));
+    assert(get(retail / "main/iw_00.iwd") == "retail fixture");
+}
 int main(int argc, char **argv) {
     if (argc == 2 && std::string_view(argv[1]) == "--hold") {
         Sleep(30000);
@@ -47,6 +107,12 @@ int main(int argc, char **argv) {
         put(source / "zone/english" / name, "asset fixture");
     Plan plan;
     std::string error;
+    checkSteamDetection(root, source);
+    assert(!Inspect({}, destination, plan, error));
+    assert(!Inspect(source, {}, plan, error));
+    assert(!Inspect(source, L"   ", plan, error));
+    assert(!Inspect(source, source, plan, error));
+    assert(!Inspect(source, root, plan, error));
     assert(!Inspect(source, source / "overlap", plan, error));
     assert(!Inspect(source, root.root_path(), plan, error));
     put(destination / "unknown.txt", "must preserve");
@@ -130,6 +196,6 @@ int main(int argc, char **argv) {
     assert(fs::weakly_canonical(root.parent_path()) ==
            fs::weakly_canonical(fs::temp_directory_path()));
     fs::remove_all(root);
-    std::cout << "Installer spaces, assets, destination checks, cancellation, repair, profile "
+    std::cout << "Steam app-7940/custom-library detection, bounded VDF parsing, installer spaces, assets, destination checks, cancellation, repair, profile "
                  "preservation and unowned-file protection passed\n";
 }

@@ -1,5 +1,7 @@
 #include "desktop_ui.hpp"
 #include "install_package.hpp"
+#include "release_version.h"
+#include "runtime_terms.hpp"
 #include <thread>
 #include <atomic>
 #include <memory>
@@ -14,9 +16,11 @@ enum {
     Next,
     Cancel,
     LaunchGame,
-    LaunchManager
+    LaunchManager,
+    RuntimeTerms
 };
 constexpr UINT ProgressMessage = WM_APP + 1, FinishedMessage = WM_APP + 2;
+constexpr auto SetupTitle = L"cod4-live v" COD4LIVE_VERSION_WIDE L" Setup";
 struct Progress {
     unsigned percent;
     std::string text;
@@ -26,7 +30,7 @@ struct Wizard {
         cancel{};
     HFONT font{}, titleFont{};
     unsigned dpi = 96;
-    bool busy = false, finished = false;
+    bool busy = false, finished = false, runtimeTermsAccepted = false;
     std::atomic_bool cancellation = false;
     std::thread worker;
     live::setup::Plan plan;
@@ -47,15 +51,16 @@ struct Wizard {
                            CLEARTYPE_QUALITY, 0, L"Segoe UI");
         titleFont = CreateFontW(-MulDiv(26, dpi, 96), 0, 0, 0, FW_SEMIBOLD, 0, 0, 0,
                                 DEFAULT_CHARSET, 0, 0, CLEARTYPE_QUALITY, 0, L"Segoe UI");
-        auto title = C(L"STATIC", L"Install cod4-live", 0, 28, 24, 610, 42);
+        auto title = C(L"STATIC", L"Install cod4-live v" COD4LIVE_VERSION_WIDE, 0, 28, 24, 610, 42);
         SendMessageW(title, WM_SETFONT, reinterpret_cast<WPARAM>(titleFont), TRUE);
         description = C(L"STATIC", L"", 0, 28, 84, 615, 60);
-        source = C(L"EDIT", live::setup::DetectSteam().c_str(), Source, 28, 178, 495, 29,
+        const auto detected = live::setup::DetectSteam();
+        source = C(L"EDIT", detected.c_str(), Source, 28, 178, 495, 29,
                    WS_TABSTOP | ES_AUTOHSCROLL);
         C(L"BUTTON", L"Browse…", BrowseSource, 535, 178, 105, 30, WS_TABSTOP);
         wchar_t local[32768];
         DWORD n = GetEnvironmentVariableW(L"LOCALAPPDATA", local, std::size(local));
-        auto output = n ? std::filesystem::path(local) / "cod4-live"
+        auto output = n && n < std::size(local) ? std::filesystem::path(local) / "cod4-live"
                         : std::filesystem::path(L"C:\\Games\\cod4-live");
         destination =
             C(L"EDIT", output.c_str(), Destination, 28, 247, 495, 29, WS_TABSTOP | ES_AUTOHSCROLL);
@@ -66,11 +71,15 @@ struct Wizard {
         status = C(L"STATIC", L"", 0, 28, 333, 612, 30);
         next = C(L"BUTTON", L"Install", Next, 405, 416, 115, 32, WS_TABSTOP | BS_DEFPUSHBUTTON);
         cancel = C(L"BUTTON", L"Cancel", Cancel, 535, 416, 105, 32, WS_TABSTOP);
+        C(L"BUTTON", L"Microsoft runtime terms…", RuntimeTerms, 28, 375, 260, 30, WS_TABSTOP);
         ShowFolders();
+        SetWindowTextW(status, detected.empty()
+            ? L"Steam CoD4 was not detected. Browse to its installed folder."
+            : L"Steam CoD4 detected. Choose where to install cod4-live.");
     }
     void ShowFolders() {
         SetWindowTextW(description,
-                       L"Select your Steam Call of Duty 4 installation and an output folder.\r\n"
+                       L"Select your Steam CoD4 installation and a separate empty output folder.\r\n"
                        L"Your original game installation will remain unchanged.");
         EnableWindow(source, TRUE);
         EnableWindow(GetDlgItem(window, BrowseSource), TRUE);
@@ -85,11 +94,15 @@ struct Wizard {
                         MB_OK | MB_ICONWARNING);
             return;
         }
+        if (!runtimeTermsAccepted) {
+            runtimeTermsAccepted = live::setup::ReviewRuntimeTerms(window, font);
+            if (!runtimeTermsAccepted) return;
+        }
         const std::wstring confirmation =
             std::wstring(plan.repair ? L"Repair cod4-live in this folder?\n\n"
                                     : L"Install cod4-live in this folder?\n\n") +
             plan.destination.wstring();
-        if (DarkMessageBox(window, confirmation.c_str(), L"cod4-live Setup",
+        if (DarkMessageBox(window, confirmation.c_str(), SetupTitle,
                         MB_OKCANCEL | MB_ICONQUESTION) != IDOK)
             return;
         busy = true;
@@ -99,6 +112,7 @@ struct Wizard {
         EnableWindow(destination, FALSE);
         EnableWindow(GetDlgItem(window, BrowseSource), FALSE);
         EnableWindow(GetDlgItem(window, BrowseDestination), FALSE);
+        EnableWindow(GetDlgItem(window, RuntimeTerms), FALSE);
         SetWindowTextW(description, plan.repair
                                         ? L"Repairing the installed project files…"
                                         : L"Installing the standalone game and dedicated server…");
@@ -115,6 +129,10 @@ struct Wizard {
         });
     }
     void Command(int id) {
+        if (id == RuntimeTerms && !busy && !finished) {
+            runtimeTermsAccepted = live::setup::ReviewRuntimeTerms(window, font);
+            return;
+        }
         if (id == BrowseSource || id == BrowseDestination) {
             if (busy || finished)
                 return;
@@ -175,8 +193,10 @@ LRESULT CALLBACK Proc(HWND window, UINT msg, WPARAM w, LPARAM l) {
         wizard.busy = false;
         EnableWindow(wizard.cancel, TRUE);
         EnableWindow(wizard.next, TRUE);
+        EnableWindow(GetDlgItem(window, RuntimeTerms), TRUE);
         if (w) {
             wizard.finished = true;
+            ShowWindow(GetDlgItem(window, RuntimeTerms), SW_HIDE);
             SetWindowTextW(wizard.description,
                            L"Installation complete.\r\nLaunch cod4-live.exe for normal play, or "
                            L"dedicated server to host a server.");
@@ -215,7 +235,7 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, LPWSTR, int show) {
     cls.hbrBackground = DarkBrush();
     RegisterClassW(&cls);
     auto dpi = GetDpiForSystem();
-    auto window = CreateWindowExW(WS_EX_CONTROLPARENT, cls.lpszClassName, L"cod4-live Setup",
+    auto window = CreateWindowExW(WS_EX_CONTROLPARENT, cls.lpszClassName, SetupTitle,
                                   WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX,
                                   CW_USEDEFAULT, CW_USEDEFAULT, MulDiv(690, dpi, 96),
                                   MulDiv(515, dpi, 96), nullptr, nullptr, instance, nullptr);

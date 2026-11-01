@@ -12,6 +12,7 @@
 #include <algorithm>
 #include <set>
 #include <cstring>
+#include <cctype>
 
 namespace live::setup {
 namespace fs = std::filesystem;
@@ -288,6 +289,11 @@ std::string HashFile(const fs::path &path) {
 }
 bool Inspect(const fs::path &game, const fs::path &destination, Plan &result, std::string &error) {
     try {
+        if (game.wstring().find_first_not_of(L" \t\r\n") == std::wstring::npos ||
+            destination.wstring().find_first_not_of(L" \t\r\n") == std::wstring::npos) {
+            error = "Select the Steam game folder and a separate output folder";
+            return false;
+        }
         Plan plan;
         plan.game = normalized(game);
         plan.destination = normalized(destination);
@@ -561,33 +567,130 @@ bool Install(const Plan &plan, std::atomic_bool &cancel, Progress progress, std:
         return false;
     }
 }
+namespace {
+struct VdfNode {
+    std::string key, value;
+    std::vector<VdfNode> children;
+    bool object = false;
+};
+class VdfReader {
+    enum class Kind { Text, Open, Close, End, Error };
+    std::string_view text;
+    std::size_t at = 0, nodes = 0;
+    Kind Token(std::string &value) {
+        value.clear();
+        for (;;) {
+            while (at < text.size() && std::isspace(static_cast<unsigned char>(text[at]))) ++at;
+            if (at + 1 < text.size() && text[at] == '/' && text[at + 1] == '/') {
+                while (at < text.size() && text[at] != '\n') ++at;
+            } else break;
+        }
+        if (at == text.size()) return Kind::End;
+        const char first = text[at++];
+        if (!first) return Kind::Error;
+        if (first == '{') return Kind::Open;
+        if (first == '}') return Kind::Close;
+        if (first == '"') {
+            while (at < text.size()) {
+                char c = text[at++];
+                if (c == '"') return Kind::Text;
+                if (c == '\\' && at < text.size() && (text[at] == '\\' || text[at] == '"')) c = text[at++];
+                if (!c || value.size() >= 32768) return Kind::Error;
+                value += c;
+            }
+            return Kind::Error;
+        }
+        value += first;
+        while (at < text.size() && !std::isspace(static_cast<unsigned char>(text[at])) && text[at] != '{' && text[at] != '}') {
+            if (!text[at] || value.size() >= 32768) return Kind::Error;
+            value += text[at++];
+        }
+        return Kind::Text;
+    }
+    bool Object(std::vector<VdfNode> &output, unsigned depth, bool enclosed) {
+        if (depth > 16) return false;
+        for (;;) {
+            VdfNode node;
+            const auto kind = Token(node.key);
+            if (kind == Kind::End) return !enclosed;
+            if (kind == Kind::Close) return enclosed;
+            if (kind != Kind::Text || ++nodes > 4096) return false;
+            const auto valueKind = Token(node.value);
+            if (valueKind == Kind::Open) {
+                node.object = true;
+                if (!Object(node.children, depth + 1, true)) return false;
+            } else if (valueKind != Kind::Text) return false;
+            output.push_back(std::move(node));
+        }
+    }
+public:
+    explicit VdfReader(std::string_view input) : text(input) {
+        if (text.starts_with("\xEF\xBB\xBF")) at = 3;
+    }
+    bool Read(std::vector<VdfNode> &output) { return Object(output, 0, false); }
+};
+const VdfNode *FindVdf(const std::vector<VdfNode> &nodes, const char *key) {
+    for (const auto &node : nodes)
+        if (!_stricmp(node.key.c_str(), key)) return &node;
+    return nullptr;
+}
+std::vector<VdfNode> ReadVdf(const fs::path &path) {
+    const auto text = read(path); // 256 KiB maximum, plus bounded depth/nodes/strings.
+    std::vector<VdfNode> result;
+    if (!VdfReader(text).Read(result)) result.clear();
+    return result;
+}
+fs::path GameInSteamLibrary(const fs::path &library) {
+    const auto manifest = ReadVdf(library / "steamapps/appmanifest_7940.acf");
+    const auto *state = FindVdf(manifest, "AppState");
+    if (!state || !state->object) return {};
+    const auto *app = FindVdf(state->children, "appid"), *directory = FindVdf(state->children, "installdir");
+    if (!app || app->object || app->value != "7940" || !directory || directory->object ||
+        !SafeRelative(directory->value)) return {};
+    const fs::path folder = live::desktop::Wide(directory->value);
+    if (folder.has_parent_path() || folder.is_absolute()) return {};
+    const auto candidate = library / "steamapps/common" / folder;
+    if (reparse(candidate) || !executable(candidate / "iw3mp.exe") ||
+        !fs::is_directory(candidate / "main") || !fs::is_directory(candidate / "zone") ||
+        !fs::is_regular_file(candidate / "localization.txt") || !fs::is_regular_file(candidate / "binkw32.dll")) return {};
+    return normalized(candidate);
+}
+} // namespace
+
+fs::path DetectSteam(const fs::path &steamDirectory) {
+    try {
+        if (steamDirectory.empty()) return {};
+        std::vector<fs::path> roots{steamDirectory};
+        const auto document = ReadVdf(steamDirectory / "steamapps/libraryfolders.vdf");
+        if (const auto *libraries = FindVdf(document, "libraryfolders"); libraries && libraries->object) {
+            for (const auto &library : libraries->children) {
+                if (library.key.empty() || library.key.find_first_not_of("0123456789") != std::string::npos) continue;
+                const auto *path = library.object ? FindVdf(library.children, "path") : &library;
+                if (path && !path->object && !path->value.empty()) {
+                    fs::path root = live::desktop::Wide(path->value);
+                    if (root.is_absolute()) roots.push_back(std::move(root));
+                }
+            }
+        }
+        for (const auto &library : roots)
+            if (const auto game = GameInSteamLibrary(library); !game.empty()) return game;
+    } catch (const std::exception &) {
+        // Discovery is optional; the user can still browse to a valid source.
+    }
+    return {};
+}
+
 fs::path DetectSteam() {
-    wchar_t steam[32768];
-    DWORD size = sizeof(steam);
-    if (RegGetValueW(HKEY_CURRENT_USER, L"Software\\Valve\\Steam", L"SteamPath", RRF_RT_REG_SZ,
-                     nullptr, steam, &size) != ERROR_SUCCESS)
-        return {};
-    std::vector<fs::path> roots{steam};
-    auto libraries = read(fs::path(steam) / "steamapps/libraryfolders.vdf");
-    std::istringstream lines(libraries);
-    std::string line;
-    while (std::getline(lines, line)) {
-        auto at = line.find("\"path\"");
-        if (at == line.npos)
-            continue;
-        auto first = line.find('"', at + 6), last = line.find('"', first + 1);
-        if (first == line.npos || last == line.npos)
-            continue;
-        auto path = line.substr(first + 1, last - first - 1);
-        while (path.find("\\\\") != path.npos)
-            path.replace(path.find("\\\\"), 2, "\\");
-        roots.emplace_back(live::desktop::Wide(path));
-    }
-    for (auto &root : roots) {
-        auto candidate = root / "steamapps/common/Call of Duty 4";
-        if (fs::is_regular_file(candidate / "iw3mp.exe"))
-            return candidate;
-    }
+    auto registryRoot = [](HKEY hive, const wchar_t *value, DWORD view) {
+        wchar_t path[32768]{};
+        DWORD size = sizeof(path);
+        return RegGetValueW(hive, L"Software\\Valve\\Steam", value, RRF_RT_REG_SZ | view,
+                           nullptr, path, &size) == ERROR_SUCCESS ? fs::path(path) : fs::path{};
+    };
+    for (const auto &root : {registryRoot(HKEY_CURRENT_USER, L"SteamPath", 0),
+                            registryRoot(HKEY_LOCAL_MACHINE, L"InstallPath", RRF_SUBKEY_WOW6432KEY),
+                            registryRoot(HKEY_LOCAL_MACHINE, L"InstallPath", RRF_SUBKEY_WOW6464KEY)})
+        if (const auto game = DetectSteam(root); !game.empty()) return game;
     return {};
 }
 } // namespace live::setup

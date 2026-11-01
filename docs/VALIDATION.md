@@ -134,6 +134,12 @@ remaining acceptance cases below are not claimed as passed.
   checked its signatures and x86 DLLs, and passed anonymous server API login
   while loading the downloaded local steamclient.dll.
 
+For the Windows 0.1 installer, the production Steam detector also found the real
+app-7940 installation on a secondary library. Automated cases cover modern and
+legacy library files, custom installation names, Unicode paths, invalid app IDs,
+traversal and bounded malformed manifests. The setup and runtime-terms pages
+were inspected visually; terms start unchecked and the continue button is disabled.
+
 ## Acceptance still required
 
 - Broaden physical checks to short taps, held actions, scoreboard, all class/team

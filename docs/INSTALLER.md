@@ -3,13 +3,20 @@
 Own and install Steam's Call of Duty 4: Modern Warfare (2007), app 7940.
 Modern Warfare Remastered and later games do not provide the correct data.
 
-1. Run `cod4-live_setup.exe`.
+1. Download the Windows installer from the [GitHub release](https://github.com/JarvisUltronSlop/cod4-live/releases)
+   and run it (`cod4-live-0.1-windows-setup.exe` for version 0.1).
 2. Select the vanilla Steam CoD4 directory containing `iw3mp.exe`, `main`, `zone`,
-   and `localization.txt`. Setup detects common Steam library locations.
-3. Choose a separate empty destination. Setup copies owned assets and middleware,
+   and `localization.txt`. Setup reads Steam's app-7940 installation manifest
+   across its libraries; use Browse if automatic detection cannot find it.
+3. Choose a separate empty destination and review the included Microsoft runtime
+   terms. Setup copies owned assets and middleware,
    validates its embedded payload, and commits the installation transaction.
 4. Keep Steam signed in to the owning account, connect a controller, and launch
    `cod4-live.exe` from the destination.
+
+Keep the vanilla Steam installation until setup has copied its data. This is a
+precompiled installer: no Visual Studio, Python, CMake or other developer tools
+are needed to install and play.
 
 Running setup again against a recognized installation repairs project files while
 preserving profiles and server configuration. Close the client and dedicated server
@@ -70,4 +77,5 @@ retail maps, textures, fastfiles, audio, or original executables. The player's
 installation supplies Bink runtime files; audio uses the existing KisakCOD OpenAL backend. Distribute the matching
 `cod4-live-source.zip` and `OpenAL-Soft-source.zip` alongside every installer to
 provide corresponding source, including the statically linked audio library.
+GitHub release assets add their version numbers to these source archive names.
 Private GitHub backup alone does not provide source access to binary recipients.

@@ -20,6 +20,8 @@ bool Inspect(const std::filesystem::path &game, const std::filesystem::path &des
              std::string &error);
 bool Install(const Plan &, std::atomic_bool &cancel, Progress, std::string &error);
 std::filesystem::path DetectSteam();
+// Deterministic discovery from a Steam root, also used by installer tests.
+std::filesystem::path DetectSteam(const std::filesystem::path &steamDirectory);
 bool SafeRelative(std::string_view);
 std::string HashFile(const std::filesystem::path &);
 } // namespace live::setup
